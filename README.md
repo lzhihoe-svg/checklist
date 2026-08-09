@@ -1,4 +1,4 @@
-# Team Checklist
+# Aramega Checklist
 
 A mobile-friendly checklist web app for a small team — one Boss panel plus three staff profiles (Admin, Sales, Operator). Lime green theme, light & dark mode.
 
@@ -22,7 +22,7 @@ Change them in the Boss panel → **PINs** tab.
 
 ## Hosting option 1 — Google Apps Script (shared data for the whole team)
 
-This gives everyone a **shared** checklist: the boss assigns from one phone, staff tick from theirs. All data is stored in a Google Sheet ("Team Checklist Data") auto-created in your Google Drive — open it anytime to see every task like a report.
+This gives everyone a **shared** checklist: the boss assigns from one phone, staff tick from theirs. All data is stored in a Google Sheet ("Aramega Checklist Data") auto-created in your Google Drive — open it anytime to see every task like a report.
 
 1. Go to [script.google.com](https://script.google.com) → **New project**.
 2. In `Code.gs`, paste the contents of [`apps-script/Code.gs`](apps-script/Code.gs).

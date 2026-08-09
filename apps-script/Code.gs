@@ -1,7 +1,7 @@
 /**
- * Team Checklist — Google Apps Script backend.
+ * Aramega Checklist — Google Apps Script backend.
  * Serves the app (index.html) and stores all data in a Google Sheet
- * named "Team Checklist Data" that is auto-created in your Drive on
+ * named "Aramega Checklist Data" that is auto-created in your Drive on
  * first use. Sheet "Tasks" holds the checklist; sheet "Pins" holds
  * the 4-digit PINs.
  */
@@ -11,7 +11,7 @@ var TASK_HEADERS = ["id", "title", "customer", "assignee", "date", "done", "done
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("index")
-    .setTitle("Team Checklist")
+    .setTitle("Aramega Checklist")
     .addMetaTag("viewport", "width=device-width, initial-scale=1, viewport-fit=cover");
 }
 
@@ -23,7 +23,7 @@ function getSpreadsheet_() {
     try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; }
   }
   if (!ss) {
-    ss = SpreadsheetApp.create("Team Checklist Data");
+    ss = SpreadsheetApp.create("Aramega Checklist Data");
     props.setProperty(SS_PROP, ss.getId());
   }
   if (!ss.getSheetByName("Tasks")) {
