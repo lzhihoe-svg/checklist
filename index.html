@@ -271,12 +271,12 @@
   .stat-head .s-pct { font-weight: 800; font-size: 22px; color: var(--lime-ink); font-variant-numeric: tabular-nums; }
   .stat-track { height: 9px; border-radius: 99px; background: var(--surface-2); margin: 12px 0; overflow: hidden; }
   .stat-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--lime), var(--lime-bright)); transition: width 0.35s ease; }
-  .stat-nums { display: flex; gap: 8px; }
+  .stat-nums { display: flex; gap: 6px; }
   .stat-nums .n {
-    flex: 1; text-align: center; background: var(--surface-2); border-radius: 10px; padding: 8px 4px;
+    flex: 1; text-align: center; background: var(--surface-2); border-radius: 10px; padding: 8px 2px; min-width: 0;
   }
-  .stat-nums .n b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
-  .stat-nums .n span { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat-nums .n b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .stat-nums .n span { font-size: 9.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
   .pin-row {
     display: flex; align-items: center; gap: 12px;
@@ -351,6 +351,7 @@
       <div style="flex:1">
         <h1 id="staff-title" style="font-size:20px;font-weight:800;"></h1>
         <div class="sub" id="staff-sub"></div>
+        <div class="sub" id="staff-updated"></div>
       </div>
       <button class="icon-btn" id="staff-refresh" aria-label="Refresh">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
@@ -376,6 +377,7 @@
       <div style="flex:1">
         <h1 style="font-size:20px;font-weight:800;">Boss Panel</h1>
         <div class="sub">Assign, track &amp; review</div>
+        <div class="sub" id="boss-updated"></div>
       </div>
       <button class="icon-btn" id="boss-refresh" aria-label="Refresh">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
@@ -383,7 +385,8 @@
     </div>
 
     <div class="tabs" role="tablist">
-      <button class="tab active" data-tab="tasks">Checklists</button>
+      <button class="tab active" data-tab="tasks">Tasks</button>
+      <button class="tab" data-tab="routine">Routine</button>
       <button class="tab" data-tab="stats">Stats</button>
       <button class="tab" data-tab="pins">PINs</button>
     </div>
@@ -397,6 +400,17 @@
       </div>
       <div id="boss-lists"></div>
       <div class="drag-tip">Hold the ☰ handle to reorder a task or drag it to another staff member. Tap ✎ to edit.</div>
+    </div>
+
+    <div class="tab-panel" id="tab-routine">
+      <div class="add-card">
+        <div class="eyebrow" style="margin-bottom:10px;">New daily routine</div>
+        <input type="text" id="new-routine-title" placeholder="e.g. Reply all WhatsApp enquiries" maxlength="120" />
+        <div class="chips" id="routine-chips"></div>
+        <button class="btn-primary" id="add-routine-btn">Add routine</button>
+      </div>
+      <div id="boss-routines"></div>
+      <p class="note">Routines show up on staff checklists every single day and untick themselves automatically each morning. Drag between staff to reassign; tap ✎ to edit.</p>
     </div>
 
     <div class="tab-panel" id="tab-stats">
@@ -454,6 +468,11 @@
         { id: uid(), title: "Update customer order status",   customer: "", assignee: "sales",    date: t, done: false, doneAt: null, order: 4 },
         { id: uid(), title: "Morning machine safety check",   customer: "", assignee: "operator", date: t, done: false, doneAt: null, order: 5 },
         { id: uid(), title: "Clean work area before closing", customer: "", assignee: "operator", date: t, done: false, doneAt: null, order: 6 }
+      ],
+      routines: [
+        { id: uid(), title: "Open shop & check emails",       assignee: "admin",    order: 1, doneDate: "", doneAt: null },
+        { id: uid(), title: "Reply all WhatsApp enquiries",   assignee: "sales",    order: 1, doneDate: "", doneAt: null },
+        { id: uid(), title: "Machine warm-up & safety check", assignee: "operator", order: 1, doneDate: "", doneAt: null }
       ]
     };
   }
@@ -464,7 +483,10 @@
       var raw = localStorage.getItem(STORE_KEY);
       if (raw) {
         var s = JSON.parse(raw);
-        if (s && s.pins && s.tasks) return s;
+        if (s && s.pins && s.tasks) {
+          if (!s.routines) s.routines = [];
+          return s;
+        }
       }
       var old = localStorage.getItem(OLD_KEY);
       if (old) {
@@ -473,6 +495,7 @@
           var t = todayStr();
           var up = {
             pins: o.pins,
+            routines: [],
             tasks: o.tasks.map(function (task, i) {
               return { id: String(task.id), title: task.title, customer: "", assignee: task.assignee,
                        date: t, done: !!task.done, doneAt: task.doneAt || null, order: i + 1 };
@@ -521,10 +544,17 @@
       t.order = Number(t.order) || 0;
       return t;
     });
+    d.routines = (d.routines || []).map(function (r) {
+      r.id = String(r.id);
+      r.order = Number(r.order) || 0;
+      r.doneDate = r.doneDate || "";
+      r.doneAt = r.doneAt ? Number(r.doneAt) : null;
+      return r;
+    });
     return d;
   }
 
-  var state = { pins: JSON.parse(JSON.stringify(DEFAULT_PINS)), tasks: [] };
+  var state = { pins: JSON.parse(JSON.stringify(DEFAULT_PINS)), tasks: [], routines: [] };
   var loaded = false;
   var lastLoad = 0;
   var draggingNow = false;
@@ -542,6 +572,21 @@
     for (var i = 0; i < state.tasks.length; i++) if (state.tasks[i].id === id) return state.tasks[i];
     return null;
   }
+  function routinesFor(id) {
+    return state.routines.filter(function (r) { return r.assignee === id; })
+      .sort(function (a, b) { return a.order - b.order || (a.id > b.id ? 1 : -1); });
+  }
+  function routineById(id) {
+    for (var i = 0; i < state.routines.length; i++) if (state.routines[i].id === id) return state.routines[i];
+    return null;
+  }
+  function routineDoneToday(r) { return r.doneDate === todayStr(); }
+  /* A routine renders like a task whose tick only counts for today */
+  function routineView(r) {
+    var done = routineDoneToday(r);
+    return { id: r.id, title: r.title, done: done, doneAt: done ? r.doneAt : null };
+  }
+  function kindOf(listEl) { return listEl.getAttribute("data-kind") === "routine" ? "routine" : "task"; }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -725,21 +770,24 @@
   }
   var lastDragEnd = 0;
   function bindTaskRows(container, rerender) {
+    var kind = kindOf(container);
     container.querySelectorAll(".task").forEach(function (row) {
       row.addEventListener("click", function (ev) {
         if (Date.now() - lastDragEnd < 400) return;
         if (row.classList.contains("editing")) return;
         if (ev.target.closest && ev.target.closest(".handle")) return;
         var editBtn = ev.target.closest ? ev.target.closest("[data-edit]") : null;
-        if (editBtn) { startEdit(row, rerender); return; }
+        if (editBtn) { startEdit(row, rerender, kind); return; }
         var del = ev.target.closest ? ev.target.closest("[data-del]") : null;
         if (del) {
-          removeTask(del.getAttribute("data-del"));
+          if (kind === "routine") removeRoutine(del.getAttribute("data-del"));
+          else removeTask(del.getAttribute("data-del"));
           rerender();
-          toast("Task deleted");
+          toast(kind === "routine" ? "Routine deleted" : "Task deleted");
           return;
         }
-        toggleTask(row.getAttribute("data-id"));
+        if (kind === "routine") toggleRoutine(row.getAttribute("data-id"));
+        else toggleTask(row.getAttribute("data-id"));
         rerender();
       });
       row.addEventListener("keydown", function (ev) {
@@ -750,8 +798,8 @@
       });
     });
   }
-  function startEdit(row, rerender) {
-    var t = taskById(row.getAttribute("data-id"));
+  function startEdit(row, rerender, kind) {
+    var t = kind === "routine" ? routineById(row.getAttribute("data-id")) : taskById(row.getAttribute("data-id"));
     if (!t) return;
     row.classList.add("editing");
     editingNow = true;
@@ -765,8 +813,8 @@
       editingNow = false;
       if (v && v !== t.title) {
         t.title = v;
-        apiMutate("setTitle", [t.id, v]);
-        toast("Task updated");
+        apiMutate(kind === "routine" ? "setRoutineTitle" : "setTitle", [t.id, v]);
+        toast(kind === "routine" ? "Routine updated" : "Task updated");
       }
       rerender();
     });
@@ -783,6 +831,17 @@
   function removeTask(id) {
     state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
     apiMutate("deleteTask", [id]);
+  }
+  function toggleRoutine(id) {
+    var r = routineById(id);
+    if (!r) return;
+    if (routineDoneToday(r)) { r.doneDate = ""; r.doneAt = null; }
+    else { r.doneDate = todayStr(); r.doneAt = Date.now(); }
+    apiMutate("setRoutineDone", [id, r.doneDate, r.doneAt]);
+  }
+  function removeRoutine(id) {
+    state.routines = state.routines.filter(function (r) { return r.id !== id; });
+    apiMutate("deleteRoutine", [id]);
   }
 
   /* ---------- drag to reorder / reassign ----------
@@ -853,26 +912,31 @@
   function finishDrag(row) {
     var listEl = row.parentElement;
     if (!listEl) return;
-    var t = taskById(row.getAttribute("data-id"));
+    var kind = kindOf(listEl);
+    var item = kind === "routine" ? routineById(row.getAttribute("data-id")) : taskById(row.getAttribute("data-id"));
     var newStaff = listEl.getAttribute("data-staff-list");
     var moved = false;
-    if (t && newStaff && t.assignee !== newStaff) {
-      t.assignee = newStaff;
-      apiMutate("setAssignee", [t.id, newStaff]);
+    if (item && newStaff && item.assignee !== newStaff) {
+      item.assignee = newStaff;
+      apiMutate(kind === "routine" ? "setRoutineAssignee" : "setAssignee", [item.id, newStaff]);
       moved = true;
     }
     commitOrder(listEl, moved ? "Moved to " + staffById(newStaff).name : "Order saved");
-    if (newStaff) { renderBossLists(); renderStats(); }
+    if (newStaff) {
+      if (kind === "routine") renderBossRoutines(); else renderBossLists();
+      renderStats();
+    }
   }
   function commitOrder(listEl, msg) {
+    var kind = kindOf(listEl);
     var ids = Array.prototype.map.call(listEl.querySelectorAll(".task"), function (r) {
       return r.getAttribute("data-id");
     });
     ids.forEach(function (id, i) {
-      var t = taskById(id);
+      var t = kind === "routine" ? routineById(id) : taskById(id);
       if (t) t.order = i + 1;
     });
-    apiMutate("reorderTasks", [ids]);
+    apiMutate(kind === "routine" ? "reorderRoutines" : "reorderTasks", [ids]);
     toast(msg || "Order saved");
   }
 
@@ -883,22 +947,33 @@
     currentStaff = id;
     var r = staffById(id);
     var list = tasksFor(id);
-    var done = list.filter(function (t) { return t.done; }).length;
-    var pct = list.length ? Math.round((done / list.length) * 100) : 0;
+    var routines = routinesFor(id);
+    var doneTasks = list.filter(function (t) { return t.done; }).length;
+    var doneRoutines = routines.filter(routineDoneToday).length;
+    var total = list.length + routines.length;
+    var done = doneTasks + doneRoutines;
+    var pct = total ? Math.round((done / total) * 100) : 0;
 
     document.getElementById("staff-title").textContent = r.name + "'s Checklist";
     document.getElementById("staff-sub").textContent = r.desc;
     document.getElementById("staff-pct").textContent = pct + "%";
-    document.getElementById("staff-count").textContent = done + " of " + list.length + " done";
+    document.getElementById("staff-count").textContent = done + " of " + total + " done";
     document.getElementById("staff-bar").style.width = pct + "%";
 
     var el = document.getElementById("staff-groups");
-    if (!list.length) {
+    if (!total) {
       el.innerHTML = '<div class="section-label">My tasks</div><div class="empty">No tasks yet. Ask the boss to assign some!</div>';
       return;
     }
+    var html = "";
+    if (routines.length) {
+      html += '<div class="section-label">Daily routine <span class="count">· ' + doneRoutines + "/" + routines.length + "</span></div>" +
+        '<div class="task-list" data-kind="routine">' +
+          routines.map(function (rt) { return taskRow(routineView(rt), { handle: true, win: true }); }).join("") +
+        "</div>";
+    }
     var groups = byDateGroups(list);
-    el.innerHTML = groups.map(function (g) {
+    html += groups.map(function (g) {
       var gDone = g.tasks.filter(function (t) { return t.done; }).length;
       return (
         '<div class="section-label">' + dayLabel(g.date) +
@@ -908,6 +983,7 @@
         "</div>"
       );
     }).join("");
+    el.innerHTML = html;
     el.querySelectorAll(".task-list").forEach(function (l) {
       bindTaskRows(l, function () { renderStaff(currentStaff); });
       enableDrag(l);
@@ -916,24 +992,27 @@
 
   /* ---------- boss panel ---------- */
   var assignTo = ["admin"];
+  var assignRoutineTo = ["admin"];
 
   function renderBoss() {
-    renderAssignChips();
+    renderChipPicker("assign-chips", assignTo);
+    renderChipPicker("routine-chips", assignRoutineTo);
     renderBossLists();
+    renderBossRoutines();
     renderStats();
     renderPins();
   }
-  function renderAssignChips() {
-    var el = document.getElementById("assign-chips");
+  function renderChipPicker(elId, selected) {
+    var el = document.getElementById(elId);
     el.innerHTML = STAFF.map(function (s) {
-      return '<button class="chip' + (assignTo.indexOf(s.id) !== -1 ? " active" : "") + '" data-chip="' + s.id + '">' + s.name + "</button>";
+      return '<button class="chip' + (selected.indexOf(s.id) !== -1 ? " active" : "") + '" data-chip="' + s.id + '">' + s.name + "</button>";
     }).join("");
     el.querySelectorAll("[data-chip]").forEach(function (c) {
       c.addEventListener("click", function () {
         var id = c.getAttribute("data-chip");
-        var i = assignTo.indexOf(id);
-        if (i !== -1) assignTo.splice(i, 1); else assignTo.push(id);
-        renderAssignChips();
+        var i = selected.indexOf(id);
+        if (i !== -1) selected.splice(i, 1); else selected.push(id);
+        renderChipPicker(elId, selected);
       });
     });
   }
@@ -959,6 +1038,45 @@
       enableDrag(c, lists);
     });
   }
+  function renderBossRoutines() {
+    var el = document.getElementById("boss-routines");
+    var html = "";
+    STAFF.forEach(function (s) {
+      var list = routinesFor(s.id);
+      var done = list.filter(routineDoneToday).length;
+      html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done today</div>";
+      html += '<div class="task-list" data-kind="routine" data-staff-list="' + s.id + '">';
+      html += list.length
+        ? list.map(function (r) { return taskRow(routineView(r), { del: true, edit: true, handle: true }); }).join("")
+        : '<div class="empty">No daily routine for ' + s.name + " yet.</div>";
+      html += "</div>";
+    });
+    el.innerHTML = html;
+    var lists = Array.prototype.slice.call(el.querySelectorAll("[data-staff-list]"));
+    lists.forEach(function (c) {
+      bindTaskRows(c, function () { renderBossRoutines(); renderStats(); });
+      enableDrag(c, lists);
+    });
+  }
+  function addRoutine() {
+    var input = document.getElementById("new-routine-title");
+    var title = input.value.trim();
+    if (!title) { toast("Type a routine first"); input.focus(); return; }
+    if (!assignRoutineTo.length) { toast("Pick at least one staff"); return; }
+    var names = [];
+    assignRoutineTo.forEach(function (sid) {
+      var maxOrder = 0;
+      state.routines.forEach(function (r) { if (r.assignee === sid && r.order > maxOrder) maxOrder = r.order; });
+      var routine = { id: uid(), title: title, assignee: sid, order: maxOrder + 1, doneDate: "", doneAt: null };
+      state.routines.push(routine);
+      apiMutate("addRoutine", [routine]);
+      names.push(staffById(sid).name);
+    });
+    input.value = "";
+    renderBossRoutines();
+    renderStats();
+    toast("Daily routine for " + names.join(" & "));
+  }
   function renderStats() {
     var el = document.getElementById("stats-list");
     var today = todayStr();
@@ -969,6 +1087,8 @@
       var pct = list.length ? Math.round((done / list.length) * 100) : 0;
       var todayList = list.filter(function (t) { return t.date === today; });
       var todayDone = todayList.filter(function (t) { return t.done; }).length;
+      var routines = routinesFor(s.id);
+      var rDone = routines.filter(routineDoneToday).length;
       return (
         '<div class="stat-card">' +
           '<div class="stat-head">' +
@@ -982,6 +1102,7 @@
             '<div class="n"><b>' + done + "</b><span>Done</span></div>" +
             '<div class="n"><b>' + pending + "</b><span>Pending</span></div>" +
             '<div class="n"><b>' + todayDone + "/" + todayList.length + "</b><span>Today</span></div>" +
+            '<div class="n"><b>' + rDone + "/" + routines.length + "</b><span>Routine</span></div>" +
           "</div>" +
         "</div>"
       );
@@ -1045,7 +1166,13 @@
   function rerenderActive() {
     if (activeScreen === "home") renderHome();
     else if (activeScreen === "staff" && currentStaff) renderStaff(currentStaff);
-    else if (activeScreen === "boss") { renderBossLists(); renderStats(); }
+    else if (activeScreen === "boss") { renderBossLists(); renderBossRoutines(); renderStats(); }
+  }
+  function updateStamp() {
+    if (!lastLoad) return;
+    var txt = "Updated " + fmtTime(lastLoad);
+    document.getElementById("staff-updated").textContent = txt;
+    document.getElementById("boss-updated").textContent = txt;
   }
   function refreshData(showToast) {
     if (draggingNow || editingNow) return;
@@ -1053,6 +1180,7 @@
       state = d;
       loaded = true;
       lastLoad = Date.now();
+      updateStamp();
       rerenderActive();
       if (showToast) toast("Refreshed");
     });
@@ -1087,6 +1215,10 @@
   document.getElementById("add-task-btn").addEventListener("click", addTask);
   document.getElementById("new-task-title").addEventListener("keydown", function (e) {
     if (e.key === "Enter") addTask();
+  });
+  document.getElementById("add-routine-btn").addEventListener("click", addRoutine);
+  document.getElementById("new-routine-title").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") addRoutine();
   });
   document.getElementById("save-pins-btn").addEventListener("click", savePins);
 

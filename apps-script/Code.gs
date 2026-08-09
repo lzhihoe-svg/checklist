@@ -45,6 +45,13 @@ function getSpreadsheet_() {
     pins.getRange(1, 1, 1, 2).setFontWeight("bold");
     pins.setFrozenRows(1);
   }
+  if (!ss.getSheetByName("Routines")) {
+    var routines = ss.insertSheet("Routines");
+    routines.getRange(1, 1, 1, 6).setValues([["id", "title", "assignee", "order", "doneDate", "doneAt"]]).setFontWeight("bold");
+    routines.getRange("A:A").setNumberFormat("@");
+    routines.getRange("E:E").setNumberFormat("@");
+    routines.setFrozenRows(1);
+  }
   var stub = ss.getSheetByName("Sheet1");
   if (stub && ss.getSheets().length > 2) ss.deleteSheet(stub);
   return ss;
@@ -80,12 +87,26 @@ function getData() {
       order: Number(r[7]) || 0
     });
   }
+  var rVals = ss.getSheetByName("Routines").getDataRange().getValues();
+  var routines = [];
+  for (var k = 1; k < rVals.length; k++) {
+    var rr = rVals[k];
+    if (!rr[0]) continue;
+    routines.push({
+      id: String(rr[0]),
+      title: String(rr[1]),
+      assignee: String(rr[2]),
+      order: Number(rr[3]) || 0,
+      doneDate: rr[4] ? normDate_(rr[4]) : "",
+      doneAt: rr[5] ? Number(rr[5]) : null
+    });
+  }
   var pVals = ss.getSheetByName("Pins").getDataRange().getValues();
   var pins = {};
   for (var j = 1; j < pVals.length; j++) {
     if (pVals[j][0]) pins[String(pVals[j][0])] = padPin_(pVals[j][1]);
   }
-  return { pins: pins, tasks: tasks };
+  return { pins: pins, tasks: tasks, routines: routines };
 }
 
 function withLock_(fn) {
@@ -170,6 +191,74 @@ function reorderTasks(ids) {
     for (var i = 0; i < ids.length; i++) {
       var row = findTaskRow_(sheet, ids[i]);
       if (row > 0) sheet.getRange(row, 8).setValue(i + 1);
+    }
+    return true;
+  });
+}
+
+/* ---------- routines (reset daily via doneDate) ---------- */
+
+function addRoutine(routine) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Routines");
+    sheet.appendRow([
+      String(routine.id),
+      String(routine.title),
+      String(routine.assignee),
+      Number(routine.order) || 0,
+      "",
+      ""
+    ]);
+    return true;
+  });
+}
+
+function setRoutineDone(id, doneDate, doneAt) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Routines");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.getRange(row, 5, 1, 2).setValues([[doneDate ? String(doneDate) : "", doneAt ? Number(doneAt) : ""]]);
+    return true;
+  });
+}
+
+function setRoutineTitle(id, title) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Routines");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.getRange(row, 2).setValue(String(title));
+    return true;
+  });
+}
+
+function setRoutineAssignee(id, assignee) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Routines");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.getRange(row, 3).setValue(String(assignee));
+    return true;
+  });
+}
+
+function deleteRoutine(id) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Routines");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.deleteRow(row);
+    return true;
+  });
+}
+
+function reorderRoutines(ids) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Routines");
+    for (var i = 0; i < ids.length; i++) {
+      var row = findTaskRow_(sheet, ids[i]);
+      if (row > 0) sheet.getRange(row, 4).setValue(i + 1);
     }
     return true;
   });
