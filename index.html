@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#65a30d" />
+<title>Team Checklist</title>
+</head>
+<body>
+<style>
+  :root {
+    --bg: #f4f7ec;
+    --surface: #ffffff;
+    --surface-2: #eef3e2;
+    --ink: #232a1c;
+    --muted: #6b7361;
+    --done: #b2b8a8;
+    --lime: #65a30d;
+    --lime-bright: #84cc16;
+    --lime-soft: #e8f5cf;
+    --lime-ink: #3f6212;
+    --border: #dfe6d0;
+    --danger: #c0453e;
+    --shadow: 0 1px 3px rgba(35, 42, 28, 0.08), 0 4px 14px rgba(35, 42, 28, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141910;
+      --surface: #1d2416;
+      --surface-2: #232c1a;
+      --ink: #edf2e0;
+      --muted: #8e977e;
+      --done: #5c6450;
+      --lime: #84cc16;
+      --lime-bright: #a3e635;
+      --lime-soft: #2b3a14;
+      --lime-ink: #c4ec7d;
+      --border: #303a22;
+      --danger: #e06c65;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141910;
+    --surface: #1d2416;
+    --surface-2: #232c1a;
+    --ink: #edf2e0;
+    --muted: #8e977e;
+    --done: #5c6450;
+    --lime: #84cc16;
+    --lime-bright: #a3e635;
+    --lime-soft: #2b3a14;
+    --lime-ink: #c4ec7d;
+    --border: #303a22;
+    --danger: #e06c65;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+  }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--lime-bright); outline-offset: 2px; border-radius: 6px; }
+  input { font: inherit; color: inherit; }
+
+  #app { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; padding: 0 16px 32px; }
+  .screen { display: none; flex: 1; flex-direction: column; animation: fadeIn 0.18s ease; }
+  .screen.active { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--lime-ink);
+  }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 20px 0 14px; }
+  .topbar h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; flex: 1; text-wrap: balance; }
+  .topbar .sub { font-size: 13px; color: var(--muted); }
+
+  .icon-btn {
+    width: 42px; height: 42px; border-radius: 50%; flex: none;
+    display: grid; place-items: center;
+    background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+  }
+  .icon-btn svg { width: 20px; height: 20px; stroke: var(--ink); }
+  .icon-btn.spin svg { animation: spin 0.5s ease; }
+  @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+  /* ---------- Home ---------- */
+  .hero { padding: 44px 4px 26px; }
+  .hero .mark {
+    width: 52px; height: 52px; border-radius: 16px; background: var(--lime);
+    display: grid; place-items: center; margin-bottom: 16px;
+    box-shadow: 0 6px 18px rgba(101, 163, 13, 0.35);
+  }
+  .hero .mark svg { width: 28px; height: 28px; stroke: #fff; }
+  .hero h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; text-wrap: balance; }
+  .hero p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+
+  .role-grid { display: flex; flex-direction: column; gap: 10px; }
+  .role-card {
+    display: flex; align-items: center; gap: 14px; text-align: left;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px; box-shadow: var(--shadow); transition: transform 0.1s ease;
+  }
+  .role-card:active { transform: scale(0.985); }
+  .avatar {
+    width: 46px; height: 46px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-weight: 800; font-size: 17px;
+    background: var(--lime-soft); color: var(--lime-ink);
+  }
+  .role-card.boss .avatar { background: var(--lime); color: #fff; }
+  .role-card .r-name { font-weight: 700; font-size: 16px; }
+  .role-card .r-desc { font-size: 13px; color: var(--muted); }
+  .role-card .chev { margin-left: auto; color: var(--muted); flex: none; }
+  .role-card .badge {
+    margin-left: auto; flex: none; font-size: 12px; font-weight: 700;
+    background: var(--lime-soft); color: var(--lime-ink);
+    border-radius: 99px; padding: 3px 10px;
+  }
+
+  /* ---------- PIN ---------- */
+  .pin-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding-bottom: 20px; }
+  .pin-who { font-size: 20px; font-weight: 800; margin-top: 10px; }
+  .pin-hint { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+  .pin-dots { display: flex; gap: 16px; margin: 10px 0 8px; }
+  .pin-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--muted); background: transparent; transition: all 0.12s ease;
+  }
+  .pin-dot.filled { background: var(--lime); border-color: var(--lime); transform: scale(1.15); }
+  .pin-error { color: var(--danger); font-size: 14px; font-weight: 600; min-height: 22px; }
+  .pin-dots.shake { animation: shake 0.35s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-9px); } 40% { transform: translateX(9px); }
+    60% { transform: translateX(-6px); } 80% { transform: translateX(6px); }
+  }
+  .keypad { display: grid; grid-template-columns: repeat(3, 76px); gap: 14px; margin-top: 14px; }
+  .key {
+    height: 76px; border-radius: 50%; font-size: 26px; font-weight: 700;
+    background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+    display: grid; place-items: center; transition: transform 0.08s ease, background 0.08s ease;
+  }
+  .key:active { transform: scale(0.93); background: var(--lime-soft); }
+  .key.ghost { background: transparent; border: none; box-shadow: none; }
+  .key svg { width: 26px; height: 26px; stroke: var(--ink); }
+
+  /* ---------- Checklist ---------- */
+  .progress-card {
+    background: var(--lime); color: #fff; border-radius: 18px; padding: 18px;
+    box-shadow: 0 8px 22px rgba(101, 163, 13, 0.32); margin-bottom: 18px;
+  }
+  :root[data-theme="dark"] .progress-card { color: #16210b; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .progress-card { color: #16210b; }
+  }
+  .progress-card .p-row { display: flex; align-items: baseline; justify-content: space-between; }
+  .progress-card .p-big { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .progress-card .p-label { font-size: 13px; font-weight: 600; opacity: 0.9; }
+  .progress-track { height: 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.35); margin-top: 12px; overflow: hidden; }
+  :root[data-theme="dark"] .progress-track { background: rgba(22, 33, 11, 0.25); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .progress-track { background: rgba(22, 33, 11, 0.25); }
+  }
+  .progress-fill { height: 100%; border-radius: 99px; background: #fff; transition: width 0.35s ease; }
+  :root[data-theme="dark"] .progress-fill { background: #16210b; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .progress-fill { background: #16210b; }
+  }
+
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 18px 2px 8px; }
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; box-shadow: var(--shadow); transition: transform 0.1s ease;
+  }
+  .task:active { transform: scale(0.985); }
+  .tickbox {
+    width: 26px; height: 26px; border-radius: 9px; flex: none;
+    border: 2px solid var(--lime); display: grid; place-items: center;
+    transition: all 0.15s ease;
+  }
+  .tickbox svg { width: 15px; height: 15px; stroke: #fff; opacity: 0; transform: scale(0.4); transition: all 0.15s ease; }
+  .task .t-title { font-weight: 600; font-size: 15px; flex: 1; transition: color 0.15s ease; }
+  .task .t-meta { font-size: 12px; color: var(--muted); }
+  .task.done { background: var(--surface-2); border-color: transparent; box-shadow: none; }
+  .task.done .tickbox { background: var(--done); border-color: var(--done); }
+  .task.done .tickbox svg { opacity: 1; transform: scale(1); }
+  .task.done .t-title { color: var(--done); text-decoration: line-through; text-decoration-thickness: 2px; }
+  .task.done .t-meta { color: var(--done); }
+  .task .del {
+    flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    color: var(--muted);
+  }
+  .task .del:active { color: var(--danger); }
+  .task .del svg { width: 17px; height: 17px; stroke: currentColor; }
+  .empty {
+    text-align: center; color: var(--muted); padding: 42px 20px; font-size: 14px;
+    border: 1.5px dashed var(--border); border-radius: 16px;
+  }
+
+  /* ---------- Boss ---------- */
+  .tabs {
+    display: flex; gap: 6px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin-bottom: 16px;
+  }
+  .tab {
+    flex: 1; padding: 9px 4px; border-radius: 9px; font-size: 13.5px; font-weight: 700; color: var(--muted);
+    transition: all 0.12s ease;
+  }
+  .tab.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .add-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+  .add-card input[type="text"] {
+    width: 100%; border: 1.5px solid var(--border); background: var(--bg);
+    border-radius: 11px; padding: 12px 14px; font-size: 15px;
+  }
+  .add-card input[type="text"]::placeholder { color: var(--muted); }
+  .chips { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+  .chip {
+    padding: 8px 15px; border-radius: 99px; font-size: 13.5px; font-weight: 700;
+    background: var(--surface-2); color: var(--muted); border: 1.5px solid transparent;
+    transition: all 0.12s ease;
+  }
+  .chip.active { background: var(--lime-soft); color: var(--lime-ink); border-color: var(--lime); }
+  .btn-primary {
+    width: 100%; padding: 13px; border-radius: 12px; font-weight: 800; font-size: 15px;
+    background: var(--lime); color: #fff; box-shadow: 0 4px 14px rgba(101, 163, 13, 0.35);
+    transition: transform 0.1s ease;
+  }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px; box-shadow: var(--shadow); margin-bottom: 10px;
+  }
+  .stat-head { display: flex; align-items: center; gap: 12px; }
+  .stat-head .s-name { font-weight: 800; font-size: 16px; flex: 1; }
+  .stat-head .s-pct { font-weight: 800; font-size: 22px; color: var(--lime-ink); font-variant-numeric: tabular-nums; }
+  .stat-track { height: 9px; border-radius: 99px; background: var(--surface-2); margin: 12px 0; overflow: hidden; }
+  .stat-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--lime), var(--lime-bright)); transition: width 0.35s ease; }
+  .stat-nums { display: flex; gap: 8px; }
+  .stat-nums .n {
+    flex: 1; text-align: center; background: var(--surface-2); border-radius: 10px; padding: 8px 4px;
+  }
+  .stat-nums .n b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .stat-nums .n span { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .pin-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 13px 16px; box-shadow: var(--shadow); margin-bottom: 8px;
+  }
+  .pin-row .p-name { font-weight: 700; flex: 1; }
+  .pin-row input {
+    width: 84px; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.2em;
+    border: 1.5px solid var(--border); background: var(--bg); border-radius: 9px; padding: 8px 4px;
+    font-weight: 700; font-size: 15px;
+  }
+  .note { font-size: 13px; color: var(--muted); margin: 10px 2px 0; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: var(--bg); font-weight: 700; font-size: 14px;
+    padding: 11px 20px; border-radius: 99px; box-shadow: var(--shadow);
+    transition: transform 0.25s ease; z-index: 50; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+
+<div id="app">
+
+  <!-- HOME -->
+  <section class="screen active" id="screen-home">
+    <div class="hero">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <h1>Team Checklist</h1>
+      <p>Pick your profile, then enter your 4-digit PIN.</p>
+    </div>
+    <div class="role-grid" id="role-grid"></div>
+  </section>
+
+  <!-- PIN -->
+  <section class="screen" id="screen-pin">
+    <div class="topbar">
+      <button class="icon-btn" id="pin-back" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <div class="pin-wrap">
+      <div class="avatar" id="pin-avatar" style="width:58px;height:58px;font-size:21px;"></div>
+      <div class="pin-who" id="pin-who"></div>
+      <div class="pin-hint">Enter your 4-digit PIN</div>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div class="pin-error" id="pin-error"></div>
+      <div class="keypad" id="keypad"></div>
+    </div>
+  </section>
+
+  <!-- STAFF CHECKLIST -->
+  <section class="screen" id="screen-staff">
+    <div class="topbar">
+      <button class="icon-btn" id="staff-back" aria-label="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div style="flex:1">
+        <h1 id="staff-title" style="font-size:20px;font-weight:800;"></h1>
+        <div class="sub" id="staff-sub"></div>
+      </div>
+      <button class="icon-btn" id="staff-refresh" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+      </button>
+    </div>
+    <div class="progress-card">
+      <div class="p-row">
+        <div class="p-big" id="staff-pct">0%</div>
+        <div class="p-label" id="staff-count">0 of 0 done</div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="staff-bar" style="width:0%"></div></div>
+    </div>
+    <div class="section-label">My tasks</div>
+    <div class="task-list" id="staff-list"></div>
+  </section>
+
+  <!-- BOSS PANEL -->
+  <section class="screen" id="screen-boss">
+    <div class="topbar">
+      <button class="icon-btn" id="boss-back" aria-label="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div style="flex:1">
+        <h1 style="font-size:20px;font-weight:800;">Boss Panel</h1>
+        <div class="sub">Assign, track &amp; review</div>
+      </div>
+      <button class="icon-btn" id="boss-refresh" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+      </button>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="tasks">Checklists</button>
+      <button class="tab" data-tab="stats">Stats</button>
+      <button class="tab" data-tab="pins">PINs</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-tasks">
+      <div class="add-card">
+        <div class="eyebrow" style="margin-bottom:10px;">New task</div>
+        <input type="text" id="new-task-title" placeholder="e.g. Reply all customer emails" maxlength="120" />
+        <div class="chips" id="assign-chips"></div>
+        <button class="btn-primary" id="add-task-btn">Add to checklist</button>
+      </div>
+      <div id="boss-lists"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-stats">
+      <div id="stats-list"></div>
+      <p class="note">Completion counts every task currently on each checklist. Tap Refresh to pull the latest ticks.</p>
+    </div>
+
+    <div class="tab-panel" id="tab-pins">
+      <div id="pins-list"></div>
+      <button class="btn-primary" id="save-pins-btn" style="margin-top:8px;">Save PINs</button>
+      <p class="note">PINs must be exactly 4 digits. Share each PIN privately with that staff member.</p>
+    </div>
+  </section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE_KEY = "team-checklist-v1";
+
+  var STAFF = [
+    { id: "admin",    name: "Admin",    desc: "Office & paperwork" },
+    { id: "sales",    name: "Sales",    desc: "Customers & orders" },
+    { id: "operator", name: "Operator", desc: "Production & floor" }
+  ];
+  var BOSS = { id: "boss", name: "Boss", desc: "Full panel access" };
+
+  function defaultState() {
+    return {
+      pins: { boss: "9999", admin: "1111", sales: "2222", operator: "3333" },
+      tasks: [
+        { id: 1, title: "Check and reply company emails", assignee: "admin",    done: false, doneAt: null },
+        { id: 2, title: "File yesterday's invoices",      assignee: "admin",    done: false, doneAt: null },
+        { id: 3, title: "Follow up 3 pending quotations", assignee: "sales",    done: false, doneAt: null },
+        { id: 4, title: "Update customer order status",   assignee: "sales",    done: false, doneAt: null },
+        { id: 5, title: "Morning machine safety check",   assignee: "operator", done: false, doneAt: null },
+        { id: 6, title: "Clean work area before closing", assignee: "operator", done: false, doneAt: null }
+      ],
+      nextId: 7
+    };
+  }
+
+  var state = load();
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && s.pins && s.tasks) return s;
+      }
+    } catch (e) { /* fall through to defaults */ }
+    var d = defaultState();
+    persist(d);
+    return d;
+  }
+  function persist(s) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(s || state)); } catch (e) { /* storage unavailable */ }
+  }
+  function reload() { state = load(); }
+
+  function staffById(id) {
+    for (var i = 0; i < STAFF.length; i++) if (STAFF[i].id === id) return STAFF[i];
+    return BOSS;
+  }
+  function tasksFor(id) {
+    return state.tasks.filter(function (t) { return t.assignee === id; });
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  /* ---------- navigation ---------- */
+  var screens = ["home", "pin", "staff", "boss"];
+  function show(name) {
+    screens.forEach(function (s) {
+      document.getElementById("screen-" + s).classList.toggle("active", s === name);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast._h);
+    toast._h = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+
+  /* ---------- home ---------- */
+  function renderHome() {
+    var grid = document.getElementById("role-grid");
+    var html = "";
+    html += roleCard(BOSS, true);
+    STAFF.forEach(function (s) { html += roleCard(s, false); });
+    grid.innerHTML = html;
+    grid.querySelectorAll(".role-card").forEach(function (btn) {
+      btn.addEventListener("click", function () { openPin(btn.getAttribute("data-role")); });
+    });
+  }
+  function roleCard(r, isBoss) {
+    var open = tasksFor(r.id).filter(function (t) { return !t.done; }).length;
+    var badge = isBoss
+      ? '<span class="chev">&#8250;</span>'
+      : '<span class="badge">' + open + " to do</span>";
+    return (
+      '<button class="role-card' + (isBoss ? " boss" : "") + '" data-role="' + r.id + '">' +
+        '<span class="avatar">' + r.name.charAt(0) + "</span>" +
+        '<span><span class="r-name">' + r.name + '</span><br /><span class="r-desc">' + r.desc + "</span></span>" +
+        badge +
+      "</button>"
+    );
+  }
+
+  /* ---------- pin ---------- */
+  var pinRole = null;
+  var pinBuf = "";
+
+  function openPin(roleId) {
+    pinRole = roleId;
+    pinBuf = "";
+    var r = staffById(roleId);
+    document.getElementById("pin-who").textContent = r.name;
+    document.getElementById("pin-avatar").textContent = r.name.charAt(0);
+    document.getElementById("pin-error").textContent = "";
+    paintDots();
+    show("pin");
+  }
+  function paintDots() {
+    var dots = document.querySelectorAll("#pin-dots .pin-dot");
+    dots.forEach(function (d, i) { d.classList.toggle("filled", i < pinBuf.length); });
+  }
+  function pressKey(k) {
+    if (k === "back") {
+      pinBuf = pinBuf.slice(0, -1);
+      paintDots();
+      return;
+    }
+    if (pinBuf.length >= 4) return;
+    pinBuf += k;
+    document.getElementById("pin-error").textContent = "";
+    paintDots();
+    if (pinBuf.length === 4) setTimeout(checkPin, 140);
+  }
+  function checkPin() {
+    if (pinBuf === state.pins[pinRole]) {
+      pinBuf = "";
+      if (pinRole === "boss") { renderBoss(); show("boss"); }
+      else { renderStaff(pinRole); show("staff"); }
+    } else {
+      var dots = document.getElementById("pin-dots");
+      dots.classList.add("shake");
+      document.getElementById("pin-error").textContent = "Wrong PIN — try again";
+      setTimeout(function () {
+        dots.classList.remove("shake");
+        pinBuf = "";
+        paintDots();
+      }, 380);
+    }
+  }
+  function buildKeypad() {
+    var pad = document.getElementById("keypad");
+    var keys = ["1","2","3","4","5","6","7","8","9","","0","back"];
+    pad.innerHTML = keys.map(function (k) {
+      if (k === "") return '<div class="key ghost" aria-hidden="true"></div>';
+      if (k === "back") {
+        return '<button class="key ghost" data-key="back" aria-label="Delete digit">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M18 9l-6 6M12 9l6 6"/></svg></button>';
+      }
+      return '<button class="key" data-key="' + k + '">' + k + "</button>";
+    }).join("");
+    pad.querySelectorAll("[data-key]").forEach(function (b) {
+      b.addEventListener("click", function () { pressKey(b.getAttribute("data-key")); });
+    });
+  }
+
+  /* ---------- staff checklist ---------- */
+  var currentStaff = null;
+
+  function renderStaff(id) {
+    currentStaff = id;
+    var r = staffById(id);
+    var list = tasksFor(id);
+    var done = list.filter(function (t) { return t.done; }).length;
+    var pct = list.length ? Math.round((done / list.length) * 100) : 0;
+
+    document.getElementById("staff-title").textContent = r.name + "'s Checklist";
+    document.getElementById("staff-sub").textContent = r.desc;
+    document.getElementById("staff-pct").textContent = pct + "%";
+    document.getElementById("staff-count").textContent = done + " of " + list.length + " done";
+    document.getElementById("staff-bar").style.width = pct + "%";
+
+    var el = document.getElementById("staff-list");
+    if (!list.length) {
+      el.innerHTML = '<div class="empty">No tasks yet. Ask the boss to assign some!</div>';
+      return;
+    }
+    el.innerHTML = list.map(function (t) { return taskRow(t, false); }).join("");
+    bindTaskRows(el, function () { renderStaff(currentStaff); });
+  }
+
+  function taskRow(t, withDelete) {
+    return (
+      '<button class="task' + (t.done ? " done" : "") + '" data-id="' + t.id + '" aria-pressed="' + t.done + '">' +
+        '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
+        '<span style="flex:1"><span class="t-title">' + esc(t.title) + "</span>" +
+        (t.done && t.doneAt ? '<br /><span class="t-meta">Done ' + fmtTime(t.doneAt) + "</span>" : "") +
+        "</span>" +
+        (withDelete
+          ? '<span class="del" data-del="' + t.id + '" role="button" aria-label="Delete task">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></span>'
+          : "") +
+      "</button>"
+    );
+  }
+  function bindTaskRows(container, rerender) {
+    container.querySelectorAll(".task").forEach(function (row) {
+      row.addEventListener("click", function (ev) {
+        var del = ev.target.closest ? ev.target.closest("[data-del]") : null;
+        if (del) {
+          removeTask(Number(del.getAttribute("data-del")));
+          rerender();
+          toast("Task deleted");
+          return;
+        }
+        toggleTask(Number(row.getAttribute("data-id")));
+        rerender();
+      });
+    });
+  }
+  function toggleTask(id) {
+    state.tasks.forEach(function (t) {
+      if (t.id === id) {
+        t.done = !t.done;
+        t.doneAt = t.done ? Date.now() : null;
+      }
+    });
+    persist();
+  }
+  function removeTask(id) {
+    state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
+    persist();
+  }
+  function fmtTime(ts) {
+    var d = new Date(ts);
+    var h = d.getHours(), m = d.getMinutes();
+    var ap = h >= 12 ? "pm" : "am";
+    h = h % 12; if (h === 0) h = 12;
+    return h + ":" + (m < 10 ? "0" : "") + m + ap;
+  }
+
+  /* ---------- boss panel ---------- */
+  var assignTo = "admin";
+
+  function renderBoss() {
+    renderAssignChips();
+    renderBossLists();
+    renderStats();
+    renderPins();
+  }
+  function renderAssignChips() {
+    var el = document.getElementById("assign-chips");
+    el.innerHTML = STAFF.map(function (s) {
+      return '<button class="chip' + (s.id === assignTo ? " active" : "") + '" data-chip="' + s.id + '">' + s.name + "</button>";
+    }).join("");
+    el.querySelectorAll("[data-chip]").forEach(function (c) {
+      c.addEventListener("click", function () {
+        assignTo = c.getAttribute("data-chip");
+        renderAssignChips();
+      });
+    });
+  }
+  function renderBossLists() {
+    var el = document.getElementById("boss-lists");
+    var html = "";
+    STAFF.forEach(function (s) {
+      var list = tasksFor(s.id);
+      var done = list.filter(function (t) { return t.done; }).length;
+      html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done</div>";
+      html += '<div class="task-list" data-staff-list="' + s.id + '">';
+      html += list.length
+        ? list.map(function (t) { return taskRow(t, true); }).join("")
+        : '<div class="empty">Nothing assigned to ' + s.name + " yet.</div>";
+      html += "</div>";
+    });
+    el.innerHTML = html;
+    el.querySelectorAll("[data-staff-list]").forEach(function (c) {
+      bindTaskRows(c, function () { renderBossLists(); renderStats(); });
+    });
+  }
+  function renderStats() {
+    var el = document.getElementById("stats-list");
+    el.innerHTML = STAFF.map(function (s) {
+      var list = tasksFor(s.id);
+      var done = list.filter(function (t) { return t.done; }).length;
+      var pending = list.length - done;
+      var pct = list.length ? Math.round((done / list.length) * 100) : 0;
+      return (
+        '<div class="stat-card">' +
+          '<div class="stat-head">' +
+            '<span class="avatar" style="width:38px;height:38px;font-size:15px;">' + s.name.charAt(0) + "</span>" +
+            '<span class="s-name">' + s.name + "</span>" +
+            '<span class="s-pct">' + pct + "%</span>" +
+          "</div>" +
+          '<div class="stat-track"><div class="stat-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="stat-nums">' +
+            '<div class="n"><b>' + list.length + "</b><span>Assigned</span></div>" +
+            '<div class="n"><b>' + done + "</b><span>Done</span></div>" +
+            '<div class="n"><b>' + pending + "</b><span>Pending</span></div>" +
+          "</div>" +
+        "</div>"
+      );
+    }).join("");
+  }
+  function renderPins() {
+    var el = document.getElementById("pins-list");
+    var roles = [BOSS].concat(STAFF);
+    el.innerHTML = roles.map(function (r) {
+      return (
+        '<div class="pin-row">' +
+          '<span class="avatar" style="width:36px;height:36px;font-size:14px;">' + r.name.charAt(0) + "</span>" +
+          '<span class="p-name">' + r.name + "</span>" +
+          '<input inputmode="numeric" pattern="[0-9]*" maxlength="4" data-pin="' + r.id + '" value="' + esc(state.pins[r.id]) + '" aria-label="' + r.name + ' PIN" />' +
+        "</div>"
+      );
+    }).join("");
+  }
+
+  function addTask() {
+    var input = document.getElementById("new-task-title");
+    var title = input.value.trim();
+    if (!title) { toast("Type a task first"); input.focus(); return; }
+    state.tasks.push({ id: state.nextId++, title: title, assignee: assignTo, done: false, doneAt: null });
+    persist();
+    input.value = "";
+    renderBossLists();
+    renderStats();
+    toast("Assigned to " + staffById(assignTo).name);
+  }
+  function savePins() {
+    var inputs = document.querySelectorAll("#pins-list [data-pin]");
+    var next = {};
+    var ok = true;
+    inputs.forEach(function (i) {
+      var v = i.value.trim();
+      if (!/^\d{4}$/.test(v)) ok = false;
+      next[i.getAttribute("data-pin")] = v;
+    });
+    if (!ok) { toast("Every PIN needs exactly 4 digits"); return; }
+    state.pins = next;
+    persist();
+    toast("PINs saved");
+  }
+
+  /* ---------- refresh ---------- */
+  function refresh(btnId, after) {
+    var btn = document.getElementById(btnId);
+    btn.classList.remove("spin");
+    void btn.offsetWidth;
+    btn.classList.add("spin");
+    reload();
+    after();
+    toast("Refreshed");
+  }
+
+  /* ---------- wire up ---------- */
+  buildKeypad();
+  renderHome();
+
+  document.getElementById("pin-back").addEventListener("click", function () { renderHome(); show("home"); });
+  document.getElementById("staff-back").addEventListener("click", function () { renderHome(); show("home"); });
+  document.getElementById("boss-back").addEventListener("click", function () { renderHome(); show("home"); });
+
+  document.getElementById("staff-refresh").addEventListener("click", function () {
+    refresh("staff-refresh", function () { renderStaff(currentStaff); });
+  });
+  document.getElementById("boss-refresh").addEventListener("click", function () {
+    refresh("boss-refresh", function () { renderBoss(); });
+  });
+
+  document.getElementById("add-task-btn").addEventListener("click", addTask);
+  document.getElementById("new-task-title").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") addTask();
+  });
+  document.getElementById("save-pins-btn").addEventListener("click", savePins);
+
+  document.querySelectorAll(".tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+      document.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.remove("active"); });
+      tab.classList.add("active");
+      document.getElementById("tab-" + tab.getAttribute("data-tab")).classList.add("active");
+    });
+  });
+})();
+</script>
+</body>
+</html>
