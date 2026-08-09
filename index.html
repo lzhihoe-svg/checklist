@@ -126,6 +126,7 @@
     background: var(--lime-soft); color: var(--lime-ink);
     border-radius: 99px; padding: 3px 10px;
   }
+  .sync-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
 
   /* ---------- PIN ---------- */
   .pin-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding-bottom: 20px; }
@@ -157,7 +158,7 @@
   /* ---------- Checklist ---------- */
   .progress-card {
     background: var(--lime); color: #fff; border-radius: 18px; padding: 18px;
-    box-shadow: 0 8px 22px rgba(101, 163, 13, 0.32); margin-bottom: 18px;
+    box-shadow: 0 8px 22px rgba(101, 163, 13, 0.32); margin-bottom: 6px;
   }
   :root[data-theme="dark"] .progress-card { color: #16210b; }
   @media (prefers-color-scheme: dark) {
@@ -178,36 +179,50 @@
   }
 
   .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 18px 2px 8px; }
+  .section-label .count { font-weight: 600; color: var(--muted); opacity: 0.8; }
   .task-list { display: flex; flex-direction: column; gap: 8px; }
   .task {
     display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 14px; box-shadow: var(--shadow); transition: transform 0.1s ease;
+    padding: 13px 14px; box-shadow: var(--shadow); transition: transform 0.1s ease;
+    user-select: none; -webkit-user-select: none;
   }
   .task:active { transform: scale(0.985); }
+  .task.dragging {
+    border-color: var(--lime); box-shadow: 0 8px 24px rgba(35, 42, 28, 0.22);
+    transform: scale(1.02); position: relative; z-index: 5;
+  }
   .tickbox {
     width: 26px; height: 26px; border-radius: 9px; flex: none;
     border: 2px solid var(--lime); display: grid; place-items: center;
     transition: all 0.15s ease;
   }
   .tickbox svg { width: 15px; height: 15px; stroke: #fff; opacity: 0; transform: scale(0.4); transition: all 0.15s ease; }
-  .task .t-title { font-weight: 600; font-size: 15px; flex: 1; transition: color 0.15s ease; }
-  .task .t-meta { font-size: 12px; color: var(--muted); }
+  .task .t-body { flex: 1; min-width: 0; }
+  .task .t-cust {
+    display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--lime-ink); margin-bottom: 1px;
+  }
+  .task .t-title { display: block; font-weight: 600; font-size: 15px; transition: color 0.15s ease; }
+  .task .t-meta { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
   .task.done { background: var(--surface-2); border-color: transparent; box-shadow: none; }
   .task.done .tickbox { background: var(--done); border-color: var(--done); }
   .task.done .tickbox svg { opacity: 1; transform: scale(1); }
   .task.done .t-title { color: var(--done); text-decoration: line-through; text-decoration-thickness: 2px; }
-  .task.done .t-meta { color: var(--done); }
-  .task .del {
+  .task.done .t-cust, .task.done .t-meta { color: var(--done); }
+  .task .del, .task .handle {
     flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
     color: var(--muted);
   }
   .task .del:active { color: var(--danger); }
-  .task .del svg { width: 17px; height: 17px; stroke: currentColor; }
+  .task .del svg, .task .handle svg { width: 17px; height: 17px; stroke: currentColor; }
+  .task .handle { touch-action: none; cursor: grab; }
+  .task .handle svg { width: 19px; height: 19px; }
   .empty {
     text-align: center; color: var(--muted); padding: 42px 20px; font-size: 14px;
     border: 1.5px dashed var(--border); border-radius: 16px;
   }
+  .drag-tip { font-size: 12px; color: var(--muted); text-align: center; margin-top: 16px; }
 
   /* ---------- Boss ---------- */
   .tabs {
@@ -222,12 +237,14 @@
   .tab-panel.active { display: block; }
 
   .add-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
-  .add-card input[type="text"] {
+  .add-card input[type="text"], .add-card input[type="date"] {
     width: 100%; border: 1.5px solid var(--border); background: var(--bg);
     border-radius: 11px; padding: 12px 14px; font-size: 15px;
   }
-  .add-card input[type="text"]::placeholder { color: var(--muted); }
+  .add-card input::placeholder { color: var(--muted); }
+  .add-card .field-gap { margin-top: 8px; }
   .chips { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+  .chips.tight { margin: 10px 0 4px; }
   .chip {
     padding: 8px 15px; border-radius: 99px; font-size: 13.5px; font-weight: 700;
     background: var(--surface-2); color: var(--muted); border: 1.5px solid transparent;
@@ -291,6 +308,7 @@
       <p>Pick your profile, then enter your 4-digit PIN.</p>
     </div>
     <div class="role-grid" id="role-grid"></div>
+    <div class="sync-note" id="sync-note"></div>
   </section>
 
   <!-- PIN -->
@@ -333,8 +351,8 @@
       </div>
       <div class="progress-track"><div class="progress-fill" id="staff-bar" style="width:0%"></div></div>
     </div>
-    <div class="section-label">My tasks</div>
-    <div class="task-list" id="staff-list"></div>
+    <div id="staff-groups"></div>
+    <div class="drag-tip">Hold the ☰ handle to drag a task up or down — arrange your day your way.</div>
   </section>
 
   <!-- BOSS PANEL -->
@@ -361,7 +379,13 @@
     <div class="tab-panel active" id="tab-tasks">
       <div class="add-card">
         <div class="eyebrow" style="margin-bottom:10px;">New task</div>
-        <input type="text" id="new-task-title" placeholder="e.g. Reply all customer emails" maxlength="120" />
+        <input type="text" id="new-task-customer" placeholder="Customer / agent (optional)" maxlength="60" />
+        <input class="field-gap" type="text" id="new-task-title" placeholder="Task — e.g. Send revised quotation" maxlength="120" />
+        <div class="chips tight" id="day-chips">
+          <button class="chip active" data-day="0">Today</button>
+          <button class="chip" data-day="1">Tomorrow</button>
+        </div>
+        <input class="field-gap" type="date" id="new-task-date" aria-label="Task date" />
         <div class="chips" id="assign-chips"></div>
         <button class="btn-primary" id="add-task-btn">Add to checklist</button>
       </div>
@@ -370,7 +394,7 @@
 
     <div class="tab-panel" id="tab-stats">
       <div id="stats-list"></div>
-      <p class="note">Completion counts every task currently on each checklist. Tap Refresh to pull the latest ticks.</p>
+      <p class="note">Completion counts every task currently on each checklist. The app also refreshes itself every 30 minutes.</p>
     </div>
 
     <div class="tab-panel" id="tab-pins">
@@ -387,7 +411,14 @@
 (function () {
   "use strict";
 
-  var STORE_KEY = "team-checklist-v1";
+  /* When served from Google Apps Script, data lives in a shared Google Sheet.
+     Anywhere else (preview, local file, Netlify) it falls back to this
+     browser's localStorage so the UI still fully works on one device. */
+  var REMOTE = typeof google !== "undefined" && google.script && google.script.run;
+
+  var STORE_KEY = "team-checklist-v2";
+  var OLD_KEY = "team-checklist-v1";
+  var AUTO_REFRESH_MS = 30 * 60 * 1000;
 
   var STAFF = [
     { id: "admin",    name: "Admin",    desc: "Office & paperwork" },
@@ -395,41 +426,103 @@
     { id: "operator", name: "Operator", desc: "Production & floor" }
   ];
   var BOSS = { id: "boss", name: "Boss", desc: "Full panel access" };
+  var DEFAULT_PINS = { boss: "9999", admin: "1111", sales: "2222", operator: "3333" };
+
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  function todayStr(offsetDays) {
+    var d = new Date();
+    if (offsetDays) d.setDate(d.getDate() + offsetDays);
+    return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
   function defaultState() {
+    var t = todayStr();
     return {
-      pins: { boss: "9999", admin: "1111", sales: "2222", operator: "3333" },
+      pins: JSON.parse(JSON.stringify(DEFAULT_PINS)),
       tasks: [
-        { id: 1, title: "Check and reply company emails", assignee: "admin",    done: false, doneAt: null },
-        { id: 2, title: "File yesterday's invoices",      assignee: "admin",    done: false, doneAt: null },
-        { id: 3, title: "Follow up 3 pending quotations", assignee: "sales",    done: false, doneAt: null },
-        { id: 4, title: "Update customer order status",   assignee: "sales",    done: false, doneAt: null },
-        { id: 5, title: "Morning machine safety check",   assignee: "operator", done: false, doneAt: null },
-        { id: 6, title: "Clean work area before closing", assignee: "operator", done: false, doneAt: null }
-      ],
-      nextId: 7
+        { id: uid(), title: "Check and reply company emails", customer: "",            assignee: "admin",    date: t, done: false, doneAt: null, order: 1 },
+        { id: uid(), title: "File yesterday's invoices",      customer: "",            assignee: "admin",    date: t, done: false, doneAt: null, order: 2 },
+        { id: uid(), title: "Follow up pending quotation",    customer: "Sample Sdn Bhd", assignee: "sales", date: t, done: false, doneAt: null, order: 3 },
+        { id: uid(), title: "Update customer order status",   customer: "",            assignee: "sales",    date: t, done: false, doneAt: null, order: 4 },
+        { id: uid(), title: "Morning machine safety check",   customer: "",            assignee: "operator", date: t, done: false, doneAt: null, order: 5 },
+        { id: uid(), title: "Clean work area before closing", customer: "",            assignee: "operator", date: t, done: false, doneAt: null, order: 6 }
+      ]
     };
   }
 
-  var state = load();
-
-  function load() {
+  /* ---------- storage adapter ---------- */
+  function localLoad() {
     try {
       var raw = localStorage.getItem(STORE_KEY);
       if (raw) {
         var s = JSON.parse(raw);
         if (s && s.pins && s.tasks) return s;
       }
-    } catch (e) { /* fall through to defaults */ }
+      var old = localStorage.getItem(OLD_KEY);
+      if (old) {
+        var o = JSON.parse(old);
+        if (o && o.pins && o.tasks) {
+          var t = todayStr();
+          var up = {
+            pins: o.pins,
+            tasks: o.tasks.map(function (task, i) {
+              return { id: String(task.id), title: task.title, customer: "", assignee: task.assignee,
+                       date: t, done: !!task.done, doneAt: task.doneAt || null, order: i + 1 };
+            })
+          };
+          localPersistState(up);
+          return up;
+        }
+      }
+    } catch (e) { /* fall through */ }
     var d = defaultState();
-    persist(d);
+    localPersistState(d);
     return d;
   }
-  function persist(s) {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(s || state)); } catch (e) { /* storage unavailable */ }
+  function localPersistState(s) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) { /* storage unavailable */ }
   }
-  function reload() { state = load(); }
 
+  function apiFail() { toast("Couldn't reach the server — check your connection"); }
+
+  function apiGetData(cb) {
+    if (REMOTE) {
+      google.script.run.withSuccessHandler(function (d) { cb(normalize(d)); })
+        .withFailureHandler(apiFail).getData();
+    } else {
+      cb(localLoad());
+    }
+  }
+  /* Mutations are applied to local state first (instant UI), then synced. */
+  function apiMutate(fn, args) {
+    if (REMOTE) {
+      var runner = google.script.run.withFailureHandler(apiFail);
+      runner[fn].apply(runner, args);
+    } else {
+      localPersistState(state);
+    }
+  }
+  function normalize(d) {
+    d = d || {};
+    d.pins = d.pins || {};
+    Object.keys(DEFAULT_PINS).forEach(function (k) { if (!d.pins[k]) d.pins[k] = DEFAULT_PINS[k]; });
+    d.tasks = (d.tasks || []).map(function (t) {
+      t.id = String(t.id);
+      t.customer = t.customer || "";
+      t.date = t.date || todayStr();
+      t.order = Number(t.order) || 0;
+      return t;
+    });
+    return d;
+  }
+
+  var state = { pins: JSON.parse(JSON.stringify(DEFAULT_PINS)), tasks: [] };
+  var loaded = false;
+  var lastLoad = 0;
+  var draggingNow = false;
+
+  /* ---------- helpers ---------- */
   function staffById(id) {
     for (var i = 0; i < STAFF.length; i++) if (STAFF[i].id === id) return STAFF[i];
     return BOSS;
@@ -437,15 +530,54 @@
   function tasksFor(id) {
     return state.tasks.filter(function (t) { return t.assignee === id; });
   }
+  function taskById(id) {
+    for (var i = 0; i < state.tasks.length; i++) if (state.tasks[i].id === id) return state.tasks[i];
+    return null;
+  }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  function dayLabel(dateStr) {
+    var p = String(dateStr).split("-");
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    if (isNaN(d)) return String(dateStr);
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var diff = Math.round((d - today) / 86400000);
+    if (diff === -1) return "Yesterday";
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Tomorrow";
+    var label = DAYS[d.getDay()] + ", " + d.getDate() + " " + MONTHS[d.getMonth()];
+    if (d.getFullYear() !== now.getFullYear()) label += " " + d.getFullYear();
+    return label;
+  }
+  function byDateGroups(list) {
+    var map = {};
+    list.forEach(function (t) { (map[t.date] = map[t.date] || []).push(t); });
+    return Object.keys(map).sort().map(function (date) {
+      return {
+        date: date,
+        tasks: map[date].sort(function (a, b) { return a.order - b.order || (a.id > b.id ? 1 : -1); })
+      };
+    });
+  }
+  function fmtTime(ts) {
+    var d = new Date(ts);
+    var h = d.getHours(), m = d.getMinutes();
+    var ap = h >= 12 ? "pm" : "am";
+    h = h % 12; if (h === 0) h = 12;
+    return h + ":" + (m < 10 ? "0" : "") + m + ap;
+  }
 
   /* ---------- navigation ---------- */
   var screens = ["home", "pin", "staff", "boss"];
+  var activeScreen = "home";
   function show(name) {
+    activeScreen = name;
     screens.forEach(function (s) {
       document.getElementById("screen-" + s).classList.toggle("active", s === name);
     });
@@ -463,19 +595,26 @@
   /* ---------- home ---------- */
   function renderHome() {
     var grid = document.getElementById("role-grid");
-    var html = "";
-    html += roleCard(BOSS, true);
+    var html = roleCard(BOSS, true);
     STAFF.forEach(function (s) { html += roleCard(s, false); });
     grid.innerHTML = html;
     grid.querySelectorAll(".role-card").forEach(function (btn) {
       btn.addEventListener("click", function () { openPin(btn.getAttribute("data-role")); });
     });
+    document.getElementById("sync-note").textContent = REMOTE
+      ? "Shared team data · synced via Google Sheets"
+      : "Preview mode · data stays on this device";
   }
   function roleCard(r, isBoss) {
-    var open = tasksFor(r.id).filter(function (t) { return !t.done; }).length;
-    var badge = isBoss
-      ? '<span class="chev">&#8250;</span>'
-      : '<span class="badge">' + open + " to do</span>";
+    var badge;
+    if (isBoss) {
+      badge = '<span class="chev">&#8250;</span>';
+    } else if (!loaded) {
+      badge = '<span class="badge">…</span>';
+    } else {
+      var open = tasksFor(r.id).filter(function (t) { return !t.done; }).length;
+      badge = '<span class="badge">' + open + " to do</span>";
+    }
     return (
       '<button class="role-card' + (isBoss ? " boss" : "") + '" data-role="' + r.id + '">' +
         '<span class="avatar">' + r.name.charAt(0) + "</span>" +
@@ -548,6 +687,115 @@
     });
   }
 
+  /* ---------- task rows ---------- */
+  function taskRow(t, opts) {
+    opts = opts || {};
+    var meta = [];
+    if (opts.showDate) meta.push(dayLabel(t.date));
+    if (t.done && t.doneAt) meta.push("Done " + fmtTime(t.doneAt));
+    return (
+      '<button class="task' + (t.done ? " done" : "") + '" data-id="' + esc(t.id) + '" aria-pressed="' + t.done + '">' +
+        '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
+        '<span class="t-body">' +
+          (t.customer ? '<span class="t-cust">' + esc(t.customer) + "</span>" : "") +
+          '<span class="t-title">' + esc(t.title) + "</span>" +
+          (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
+        "</span>" +
+        (opts.del
+          ? '<span class="del" data-del="' + esc(t.id) + '" role="button" aria-label="Delete task">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></span>'
+          : "") +
+        (opts.handle
+          ? '<span class="handle" aria-label="Drag to reorder">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>'
+          : "") +
+      "</button>"
+    );
+  }
+  var lastDragEnd = 0;
+  function bindTaskRows(container, rerender) {
+    container.querySelectorAll(".task").forEach(function (row) {
+      row.addEventListener("click", function (ev) {
+        if (Date.now() - lastDragEnd < 400) return;
+        if (ev.target.closest && ev.target.closest(".handle")) return;
+        var del = ev.target.closest ? ev.target.closest("[data-del]") : null;
+        if (del) {
+          removeTask(del.getAttribute("data-del"));
+          rerender();
+          toast("Task deleted");
+          return;
+        }
+        toggleTask(row.getAttribute("data-id"));
+        rerender();
+      });
+    });
+  }
+  function toggleTask(id) {
+    var t = taskById(id);
+    if (!t) return;
+    t.done = !t.done;
+    t.doneAt = t.done ? Date.now() : null;
+    apiMutate("setDone", [id, t.done, t.doneAt]);
+  }
+  function removeTask(id) {
+    state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
+    apiMutate("deleteTask", [id]);
+  }
+
+  /* ---------- drag to reorder (staff only) ---------- */
+  function enableDrag(listEl) {
+    listEl.querySelectorAll(".handle").forEach(function (h) {
+      h.addEventListener("pointerdown", function (e) { startDrag(e, h, listEl); });
+    });
+  }
+  function startDrag(e, handle, listEl) {
+    e.preventDefault();
+    var row = handle.closest(".task");
+    if (!row) return;
+    draggingNow = true;
+    row.classList.add("dragging");
+    try { handle.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+
+    function onMove(ev) {
+      var y = ev.clientY;
+      var rows = Array.prototype.slice.call(listEl.querySelectorAll(".task"));
+      var next = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i] === row) continue;
+        var rect = rows[i].getBoundingClientRect();
+        if (y < rect.top + rect.height / 2) { next = rows[i]; break; }
+      }
+      if (next) {
+        if (next !== row.nextSibling) listEl.insertBefore(row, next);
+      } else if (listEl.lastElementChild !== row) {
+        listEl.appendChild(row);
+      }
+    }
+    function onUp() {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+      row.classList.remove("dragging");
+      draggingNow = false;
+      lastDragEnd = Date.now();
+      commitOrder(listEl);
+    }
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  }
+  function commitOrder(listEl) {
+    var ids = Array.prototype.map.call(listEl.querySelectorAll(".task"), function (r) {
+      return r.getAttribute("data-id");
+    });
+    ids.forEach(function (id, i) {
+      var t = taskById(id);
+      if (t) t.order = i + 1;
+    });
+    apiMutate("reorderTasks", [ids]);
+    toast("Order saved");
+  }
+
   /* ---------- staff checklist ---------- */
   var currentStaff = null;
 
@@ -564,73 +812,49 @@
     document.getElementById("staff-count").textContent = done + " of " + list.length + " done";
     document.getElementById("staff-bar").style.width = pct + "%";
 
-    var el = document.getElementById("staff-list");
+    var el = document.getElementById("staff-groups");
     if (!list.length) {
-      el.innerHTML = '<div class="empty">No tasks yet. Ask the boss to assign some!</div>';
+      el.innerHTML = '<div class="section-label">My tasks</div><div class="empty">No tasks yet. Ask the boss to assign some!</div>';
       return;
     }
-    el.innerHTML = list.map(function (t) { return taskRow(t, false); }).join("");
-    bindTaskRows(el, function () { renderStaff(currentStaff); });
-  }
-
-  function taskRow(t, withDelete) {
-    return (
-      '<button class="task' + (t.done ? " done" : "") + '" data-id="' + t.id + '" aria-pressed="' + t.done + '">' +
-        '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
-        '<span style="flex:1"><span class="t-title">' + esc(t.title) + "</span>" +
-        (t.done && t.doneAt ? '<br /><span class="t-meta">Done ' + fmtTime(t.doneAt) + "</span>" : "") +
-        "</span>" +
-        (withDelete
-          ? '<span class="del" data-del="' + t.id + '" role="button" aria-label="Delete task">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></span>'
-          : "") +
-      "</button>"
-    );
-  }
-  function bindTaskRows(container, rerender) {
-    container.querySelectorAll(".task").forEach(function (row) {
-      row.addEventListener("click", function (ev) {
-        var del = ev.target.closest ? ev.target.closest("[data-del]") : null;
-        if (del) {
-          removeTask(Number(del.getAttribute("data-del")));
-          rerender();
-          toast("Task deleted");
-          return;
-        }
-        toggleTask(Number(row.getAttribute("data-id")));
-        rerender();
-      });
+    var groups = byDateGroups(list);
+    el.innerHTML = groups.map(function (g) {
+      var gDone = g.tasks.filter(function (t) { return t.done; }).length;
+      return (
+        '<div class="section-label">' + dayLabel(g.date) +
+          ' <span class="count">· ' + gDone + "/" + g.tasks.length + "</span></div>" +
+        '<div class="task-list" data-group="' + g.date + '">' +
+          g.tasks.map(function (t) { return taskRow(t, { handle: true }); }).join("") +
+        "</div>"
+      );
+    }).join("");
+    el.querySelectorAll(".task-list").forEach(function (l) {
+      bindTaskRows(l, function () { renderStaff(currentStaff); });
+      enableDrag(l);
     });
-  }
-  function toggleTask(id) {
-    state.tasks.forEach(function (t) {
-      if (t.id === id) {
-        t.done = !t.done;
-        t.doneAt = t.done ? Date.now() : null;
-      }
-    });
-    persist();
-  }
-  function removeTask(id) {
-    state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
-    persist();
-  }
-  function fmtTime(ts) {
-    var d = new Date(ts);
-    var h = d.getHours(), m = d.getMinutes();
-    var ap = h >= 12 ? "pm" : "am";
-    h = h % 12; if (h === 0) h = 12;
-    return h + ":" + (m < 10 ? "0" : "") + m + ap;
   }
 
   /* ---------- boss panel ---------- */
   var assignTo = "admin";
 
   function renderBoss() {
+    renderDayChips();
     renderAssignChips();
     renderBossLists();
     renderStats();
     renderPins();
+  }
+  function renderDayChips() {
+    var input = document.getElementById("new-task-date");
+    if (!input.value) input.value = todayStr();
+    paintDayChips();
+  }
+  function paintDayChips() {
+    var input = document.getElementById("new-task-date");
+    document.querySelectorAll("#day-chips .chip").forEach(function (c) {
+      var target = todayStr(Number(c.getAttribute("data-day")));
+      c.classList.toggle("active", input.value === target);
+    });
   }
   function renderAssignChips() {
     var el = document.getElementById("assign-chips");
@@ -648,12 +872,14 @@
     var el = document.getElementById("boss-lists");
     var html = "";
     STAFF.forEach(function (s) {
-      var list = tasksFor(s.id);
+      var list = tasksFor(s.id).sort(function (a, b) {
+        return a.date < b.date ? -1 : a.date > b.date ? 1 : a.order - b.order;
+      });
       var done = list.filter(function (t) { return t.done; }).length;
       html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done</div>";
       html += '<div class="task-list" data-staff-list="' + s.id + '">';
       html += list.length
-        ? list.map(function (t) { return taskRow(t, true); }).join("")
+        ? list.map(function (t) { return taskRow(t, { del: true, showDate: true }); }).join("")
         : '<div class="empty">Nothing assigned to ' + s.name + " yet.</div>";
       html += "</div>";
     });
@@ -664,11 +890,14 @@
   }
   function renderStats() {
     var el = document.getElementById("stats-list");
+    var today = todayStr();
     el.innerHTML = STAFF.map(function (s) {
       var list = tasksFor(s.id);
       var done = list.filter(function (t) { return t.done; }).length;
       var pending = list.length - done;
       var pct = list.length ? Math.round((done / list.length) * 100) : 0;
+      var todayList = list.filter(function (t) { return t.date === today; });
+      var todayDone = todayList.filter(function (t) { return t.done; }).length;
       return (
         '<div class="stat-card">' +
           '<div class="stat-head">' +
@@ -681,6 +910,7 @@
             '<div class="n"><b>' + list.length + "</b><span>Assigned</span></div>" +
             '<div class="n"><b>' + done + "</b><span>Done</span></div>" +
             '<div class="n"><b>' + pending + "</b><span>Pending</span></div>" +
+            '<div class="n"><b>' + todayDone + "/" + todayList.length + "</b><span>Today</span></div>" +
           "</div>" +
         "</div>"
       );
@@ -701,15 +931,27 @@
   }
 
   function addTask() {
-    var input = document.getElementById("new-task-title");
-    var title = input.value.trim();
-    if (!title) { toast("Type a task first"); input.focus(); return; }
-    state.tasks.push({ id: state.nextId++, title: title, assignee: assignTo, done: false, doneAt: null });
-    persist();
-    input.value = "";
+    var titleInput = document.getElementById("new-task-title");
+    var custInput = document.getElementById("new-task-customer");
+    var dateInput = document.getElementById("new-task-date");
+    var title = titleInput.value.trim();
+    if (!title) { toast("Type a task first"); titleInput.focus(); return; }
+    var date = dateInput.value || todayStr();
+    var maxOrder = 0;
+    state.tasks.forEach(function (t) {
+      if (t.assignee === assignTo && t.date === date && t.order > maxOrder) maxOrder = t.order;
+    });
+    var task = {
+      id: uid(), title: title, customer: custInput.value.trim(),
+      assignee: assignTo, date: date, done: false, doneAt: null, order: maxOrder + 1
+    };
+    state.tasks.push(task);
+    apiMutate("addTask", [task]);
+    titleInput.value = "";
+    custInput.value = "";
     renderBossLists();
     renderStats();
-    toast("Assigned to " + staffById(assignTo).name);
+    toast("Assigned to " + staffById(assignTo).name + " · " + dayLabel(date));
   }
   function savePins() {
     var inputs = document.querySelectorAll("#pins-list [data-pin]");
@@ -722,41 +964,66 @@
     });
     if (!ok) { toast("Every PIN needs exactly 4 digits"); return; }
     state.pins = next;
-    persist();
+    apiMutate("savePins", [next]);
     toast("PINs saved");
   }
 
   /* ---------- refresh ---------- */
-  function refresh(btnId, after) {
+  function rerenderActive() {
+    if (activeScreen === "home") renderHome();
+    else if (activeScreen === "staff" && currentStaff) renderStaff(currentStaff);
+    else if (activeScreen === "boss") { renderBossLists(); renderStats(); }
+  }
+  function refreshData(showToast) {
+    if (draggingNow) return;
+    apiGetData(function (d) {
+      state = d;
+      loaded = true;
+      lastLoad = Date.now();
+      rerenderActive();
+      if (showToast) toast("Refreshed");
+    });
+  }
+  function refreshBtn(btnId) {
     var btn = document.getElementById(btnId);
     btn.classList.remove("spin");
     void btn.offsetWidth;
     btn.classList.add("spin");
-    reload();
-    after();
-    toast("Refreshed");
+    refreshData(true);
   }
+
+  /* Auto refresh every 30 minutes, plus when the app comes back to the
+     foreground after being away for over a minute. */
+  setInterval(function () { refreshData(false); }, AUTO_REFRESH_MS);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && Date.now() - lastLoad > 60000) refreshData(false);
+  });
 
   /* ---------- wire up ---------- */
   buildKeypad();
   renderHome();
+  refreshData(false);
 
   document.getElementById("pin-back").addEventListener("click", function () { renderHome(); show("home"); });
   document.getElementById("staff-back").addEventListener("click", function () { renderHome(); show("home"); });
   document.getElementById("boss-back").addEventListener("click", function () { renderHome(); show("home"); });
 
-  document.getElementById("staff-refresh").addEventListener("click", function () {
-    refresh("staff-refresh", function () { renderStaff(currentStaff); });
-  });
-  document.getElementById("boss-refresh").addEventListener("click", function () {
-    refresh("boss-refresh", function () { renderBoss(); });
-  });
+  document.getElementById("staff-refresh").addEventListener("click", function () { refreshBtn("staff-refresh"); });
+  document.getElementById("boss-refresh").addEventListener("click", function () { refreshBtn("boss-refresh"); });
 
   document.getElementById("add-task-btn").addEventListener("click", addTask);
   document.getElementById("new-task-title").addEventListener("keydown", function (e) {
     if (e.key === "Enter") addTask();
   });
   document.getElementById("save-pins-btn").addEventListener("click", savePins);
+
+  document.querySelectorAll("#day-chips .chip").forEach(function (c) {
+    c.addEventListener("click", function () {
+      document.getElementById("new-task-date").value = todayStr(Number(c.getAttribute("data-day")));
+      paintDayChips();
+    });
+  });
+  document.getElementById("new-task-date").addEventListener("change", paintDayChips);
 
   document.querySelectorAll(".tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
