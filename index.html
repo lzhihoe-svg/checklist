@@ -357,6 +357,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
       </button>
     </div>
+    <div class="tabs" role="tablist" id="staff-tabs">
+      <button class="tab active" data-stab="tasks">My Tasks</button>
+      <button class="tab" data-stab="routine">Daily Routine</button>
+    </div>
     <div class="progress-card">
       <div class="p-row">
         <div class="p-big" id="staff-pct">0%</div>
@@ -711,7 +715,7 @@
     if (pinBuf === state.pins[pinRole]) {
       pinBuf = "";
       if (pinRole === "boss") { renderBoss(); show("boss"); }
-      else { renderStaff(pinRole); show("staff"); }
+      else { staffTab = "tasks"; syncStaffTabs(); renderStaff(pinRole); show("staff"); }
     } else {
       var dots = document.getElementById("pin-dots");
       dots.classList.add("shake");
@@ -942,7 +946,13 @@
 
   /* ---------- staff checklist ---------- */
   var currentStaff = null;
+  var staffTab = "tasks";
 
+  function syncStaffTabs() {
+    document.querySelectorAll("#staff-tabs .tab").forEach(function (t) {
+      t.classList.toggle("active", t.getAttribute("data-stab") === staffTab);
+    });
+  }
   function renderStaff(id) {
     currentStaff = id;
     var r = staffById(id);
@@ -950,39 +960,40 @@
     var routines = routinesFor(id);
     var doneTasks = list.filter(function (t) { return t.done; }).length;
     var doneRoutines = routines.filter(routineDoneToday).length;
-    var total = list.length + routines.length;
-    var done = doneTasks + doneRoutines;
+    var onRoutine = staffTab === "routine";
+    var total = onRoutine ? routines.length : list.length;
+    var done = onRoutine ? doneRoutines : doneTasks;
     var pct = total ? Math.round((done / total) * 100) : 0;
 
     document.getElementById("staff-title").textContent = r.name + "'s Checklist";
     document.getElementById("staff-sub").textContent = r.desc;
     document.getElementById("staff-pct").textContent = pct + "%";
-    document.getElementById("staff-count").textContent = done + " of " + total + " done";
+    document.getElementById("staff-count").textContent = done + " of " + total + (onRoutine ? " done today" : " done");
     document.getElementById("staff-bar").style.width = pct + "%";
 
     var el = document.getElementById("staff-groups");
-    if (!total) {
-      el.innerHTML = '<div class="section-label">My tasks</div><div class="empty">No tasks yet. Ask the boss to assign some!</div>';
-      return;
-    }
     var html = "";
-    if (routines.length) {
-      html += '<div class="section-label">Daily routine <span class="count">· ' + doneRoutines + "/" + routines.length + "</span></div>" +
-        '<div class="task-list" data-kind="routine">' +
-          routines.map(function (rt) { return taskRow(routineView(rt), { handle: true, win: true }); }).join("") +
-        "</div>";
+    if (onRoutine) {
+      html = routines.length
+        ? '<div class="section-label">Daily routine <span class="count">· resets every morning</span></div>' +
+          '<div class="task-list" data-kind="routine">' +
+            routines.map(function (rt) { return taskRow(routineView(rt), { handle: true, win: true }); }).join("") +
+          "</div>"
+        : '<div class="section-label">Daily routine</div><div class="empty">No daily routine yet. The boss can add one.</div>';
+    } else if (!list.length) {
+      html = '<div class="section-label">My tasks</div><div class="empty">No tasks yet. Ask the boss to assign some!</div>';
+    } else {
+      html = byDateGroups(list).map(function (g) {
+        var gDone = g.tasks.filter(function (t) { return t.done; }).length;
+        return (
+          '<div class="section-label">' + dayLabel(g.date) +
+            ' <span class="count">· ' + gDone + "/" + g.tasks.length + "</span></div>" +
+          '<div class="task-list" data-group="' + g.date + '">' +
+            g.tasks.map(function (t) { return taskRow(t, { handle: true, win: true }); }).join("") +
+          "</div>"
+        );
+      }).join("");
     }
-    var groups = byDateGroups(list);
-    html += groups.map(function (g) {
-      var gDone = g.tasks.filter(function (t) { return t.done; }).length;
-      return (
-        '<div class="section-label">' + dayLabel(g.date) +
-          ' <span class="count">· ' + gDone + "/" + g.tasks.length + "</span></div>" +
-        '<div class="task-list" data-group="' + g.date + '">' +
-          g.tasks.map(function (t) { return taskRow(t, { handle: true, win: true }); }).join("") +
-        "</div>"
-      );
-    }).join("");
     el.innerHTML = html;
     el.querySelectorAll(".task-list").forEach(function (l) {
       bindTaskRows(l, function () { renderStaff(currentStaff); });
@@ -1216,6 +1227,14 @@
   document.getElementById("new-task-title").addEventListener("keydown", function (e) {
     if (e.key === "Enter") addTask();
   });
+  document.querySelectorAll("#staff-tabs .tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      staffTab = tab.getAttribute("data-stab");
+      syncStaffTabs();
+      if (currentStaff) renderStaff(currentStaff);
+    });
+  });
+
   document.getElementById("add-routine-btn").addEventListener("click", addRoutine);
   document.getElementById("new-routine-title").addEventListener("keydown", function (e) {
     if (e.key === "Enter") addRoutine();
