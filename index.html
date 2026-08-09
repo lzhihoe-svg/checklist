@@ -69,7 +69,7 @@
   button:focus-visible, input:focus-visible { outline: 3px solid var(--lime-bright); outline-offset: 2px; border-radius: 6px; }
   input { font: inherit; color: inherit; }
 
-  #app { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; padding: 0 16px 32px; }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; padding: 0 16px calc(110px + env(safe-area-inset-bottom, 0px)); }
   .screen { display: none; flex: 1; flex-direction: column; animation: fadeIn 0.18s ease; }
   .screen.active { display: flex; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -183,7 +183,7 @@
     display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     padding: 13px 14px; box-shadow: var(--shadow); transition: transform 0.1s ease;
-    user-select: none; -webkit-user-select: none;
+    user-select: none; -webkit-user-select: none; cursor: pointer;
   }
   .task:active { transform: scale(0.985); }
   .task.dragging {
@@ -204,14 +204,24 @@
   .task.done .tickbox svg { opacity: 1; transform: scale(1); }
   .task.done .t-title { color: var(--done); text-decoration: line-through; text-decoration-thickness: 2px; }
   .task.done .t-meta { color: var(--done); }
-  .task .del, .task .handle {
-    flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  /* Staff view: a completed task celebrates in green instead of fading to grey */
+  .task.done.win { background: var(--lime-soft); border-color: transparent; }
+  .task.done.win .tickbox { background: var(--lime); border-color: var(--lime); }
+  .task.done.win .t-title { color: var(--lime-ink); }
+  .task.done.win .t-meta { color: var(--lime-ink); opacity: 0.75; }
+  .task .del, .task .edit, .task .handle {
+    flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
     color: var(--muted);
   }
   .task .del:active { color: var(--danger); }
-  .task .del svg, .task .handle svg { width: 17px; height: 17px; stroke: currentColor; }
+  .task .edit:active { color: var(--lime-ink); }
+  .task .del svg, .task .edit svg, .task .handle svg { width: 17px; height: 17px; stroke: currentColor; }
   .task .handle { touch-action: none; cursor: grab; }
   .task .handle svg { width: 19px; height: 19px; }
+  .task input.t-edit {
+    width: 100%; border: 1.5px solid var(--lime); background: var(--bg);
+    border-radius: 8px; padding: 7px 10px; font-size: 15px; font-weight: 600;
+  }
   .empty {
     text-align: center; color: var(--muted); padding: 42px 20px; font-size: 14px;
     border: 1.5px dashed var(--border); border-radius: 16px;
@@ -386,6 +396,7 @@
         <button class="btn-primary" id="add-task-btn">Add to checklist</button>
       </div>
       <div id="boss-lists"></div>
+      <div class="drag-tip">Hold the ☰ handle to reorder a task or drag it to another staff member. Tap ✎ to edit.</div>
     </div>
 
     <div class="tab-panel" id="tab-stats">
@@ -517,6 +528,7 @@
   var loaded = false;
   var lastLoad = 0;
   var draggingNow = false;
+  var editingNow = false;
 
   /* ---------- helpers ---------- */
   function staffById(id) {
@@ -689,12 +701,17 @@
     var meta = [];
     if (t.done && t.doneAt) meta.push("Done " + fmtTime(t.doneAt));
     return (
-      '<button class="task' + (t.done ? " done" : "") + '" data-id="' + esc(t.id) + '" aria-pressed="' + t.done + '">' +
+      '<div class="task' + (t.done ? " done" : "") + (opts.win && t.done ? " win" : "") +
+        '" role="button" tabindex="0" data-id="' + esc(t.id) + '" aria-pressed="' + t.done + '">' +
         '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
         '<span class="t-body">' +
           '<span class="t-title">' + esc(t.title) + "</span>" +
           (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
         "</span>" +
+        (opts.edit
+          ? '<span class="edit" data-edit="' + esc(t.id) + '" role="button" aria-label="Edit task">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>'
+          : "") +
         (opts.del
           ? '<span class="del" data-del="' + esc(t.id) + '" role="button" aria-label="Delete task">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></span>'
@@ -703,7 +720,7 @@
           ? '<span class="handle" aria-label="Drag to reorder">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>'
           : "") +
-      "</button>"
+      "</div>"
     );
   }
   var lastDragEnd = 0;
@@ -711,7 +728,10 @@
     container.querySelectorAll(".task").forEach(function (row) {
       row.addEventListener("click", function (ev) {
         if (Date.now() - lastDragEnd < 400) return;
+        if (row.classList.contains("editing")) return;
         if (ev.target.closest && ev.target.closest(".handle")) return;
+        var editBtn = ev.target.closest ? ev.target.closest("[data-edit]") : null;
+        if (editBtn) { startEdit(row, rerender); return; }
         var del = ev.target.closest ? ev.target.closest("[data-del]") : null;
         if (del) {
           removeTask(del.getAttribute("data-del"));
@@ -722,7 +742,36 @@
         toggleTask(row.getAttribute("data-id"));
         rerender();
       });
+      row.addEventListener("keydown", function (ev) {
+        if ((ev.key === "Enter" || ev.key === " ") && !row.classList.contains("editing")) {
+          ev.preventDefault();
+          row.click();
+        }
+      });
     });
+  }
+  function startEdit(row, rerender) {
+    var t = taskById(row.getAttribute("data-id"));
+    if (!t) return;
+    row.classList.add("editing");
+    editingNow = true;
+    var body = row.querySelector(".t-body");
+    body.innerHTML = '<input class="t-edit" type="text" maxlength="120" value="' + esc(t.title) + '" />';
+    var input = body.querySelector("input");
+    input.addEventListener("click", function (e) { e.stopPropagation(); });
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") input.blur(); });
+    input.addEventListener("blur", function () {
+      var v = input.value.trim();
+      editingNow = false;
+      if (v && v !== t.title) {
+        t.title = v;
+        apiMutate("setTitle", [t.id, v]);
+        toast("Task updated");
+      }
+      rerender();
+    });
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
   }
   function toggleTask(id) {
     var t = taskById(id);
@@ -736,23 +785,35 @@
     apiMutate("deleteTask", [id]);
   }
 
-  /* ---------- drag to reorder (staff only) ---------- */
-  function enableDrag(listEl) {
+  /* ---------- drag to reorder / reassign ----------
+     Staff drag within one day-group; the boss can also drag a task
+     from one staff member's list into another to reassign it. */
+  function enableDrag(listEl, allLists) {
     listEl.querySelectorAll(".handle").forEach(function (h) {
-      h.addEventListener("pointerdown", function (e) { startDrag(e, h, listEl); });
+      h.addEventListener("pointerdown", function (e) { startDrag(e, h, listEl, allLists || [listEl]); });
     });
   }
-  function startDrag(e, handle, listEl) {
+  function startDrag(e, handle, listEl, allLists) {
     e.preventDefault();
     var row = handle.closest(".task");
     if (!row) return;
     draggingNow = true;
     row.classList.add("dragging");
     try { handle.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+    var lastY = e.clientY;
 
-    function onMove(ev) {
-      var y = ev.clientY;
-      var rows = Array.prototype.slice.call(listEl.querySelectorAll(".task"));
+    function pickList(y) {
+      var best = listEl, bestDist = Infinity;
+      allLists.forEach(function (l) {
+        var r = l.getBoundingClientRect();
+        var dist = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+        if (dist < bestDist) { bestDist = dist; best = l; }
+      });
+      return best;
+    }
+    function place(y) {
+      var target = pickList(y);
+      var rows = Array.prototype.slice.call(target.querySelectorAll(".task"));
       var next = null;
       for (var i = 0; i < rows.length; i++) {
         if (rows[i] === row) continue;
@@ -760,25 +821,50 @@
         if (y < rect.top + rect.height / 2) { next = rows[i]; break; }
       }
       if (next) {
-        if (next !== row.nextSibling) listEl.insertBefore(row, next);
-      } else if (listEl.lastElementChild !== row) {
-        listEl.appendChild(row);
+        if (next !== row.nextSibling || row.parentElement !== target) target.insertBefore(row, next);
+      } else if (target.lastElementChild !== row || row.parentElement !== target) {
+        target.appendChild(row);
       }
     }
+    function onMove(ev) { lastY = ev.clientY; place(lastY); }
+
+    /* auto-scroll when dragging near the top/bottom of a long list */
+    var raf = requestAnimationFrame(function loop() {
+      if (!draggingNow) return;
+      if (lastY < 110) { window.scrollBy(0, -10); place(lastY); }
+      else if (lastY > window.innerHeight - 110) { window.scrollBy(0, 10); place(lastY); }
+      raf = requestAnimationFrame(loop);
+    });
+
     function onUp() {
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);
       handle.removeEventListener("pointercancel", onUp);
+      cancelAnimationFrame(raf);
       row.classList.remove("dragging");
       draggingNow = false;
       lastDragEnd = Date.now();
-      commitOrder(listEl);
+      finishDrag(row);
     }
     handle.addEventListener("pointermove", onMove);
     handle.addEventListener("pointerup", onUp);
     handle.addEventListener("pointercancel", onUp);
   }
-  function commitOrder(listEl) {
+  function finishDrag(row) {
+    var listEl = row.parentElement;
+    if (!listEl) return;
+    var t = taskById(row.getAttribute("data-id"));
+    var newStaff = listEl.getAttribute("data-staff-list");
+    var moved = false;
+    if (t && newStaff && t.assignee !== newStaff) {
+      t.assignee = newStaff;
+      apiMutate("setAssignee", [t.id, newStaff]);
+      moved = true;
+    }
+    commitOrder(listEl, moved ? "Moved to " + staffById(newStaff).name : "Order saved");
+    if (newStaff) { renderBossLists(); renderStats(); }
+  }
+  function commitOrder(listEl, msg) {
     var ids = Array.prototype.map.call(listEl.querySelectorAll(".task"), function (r) {
       return r.getAttribute("data-id");
     });
@@ -787,7 +873,7 @@
       if (t) t.order = i + 1;
     });
     apiMutate("reorderTasks", [ids]);
-    toast("Order saved");
+    toast(msg || "Order saved");
   }
 
   /* ---------- staff checklist ---------- */
@@ -818,7 +904,7 @@
         '<div class="section-label">' + dayLabel(g.date) +
           ' <span class="count">· ' + gDone + "/" + g.tasks.length + "</span></div>" +
         '<div class="task-list" data-group="' + g.date + '">' +
-          g.tasks.map(function (t) { return taskRow(t, { handle: true }); }).join("") +
+          g.tasks.map(function (t) { return taskRow(t, { handle: true, win: true }); }).join("") +
         "</div>"
       );
     }).join("");
@@ -829,7 +915,7 @@
   }
 
   /* ---------- boss panel ---------- */
-  var assignTo = "admin";
+  var assignTo = ["admin"];
 
   function renderBoss() {
     renderAssignChips();
@@ -840,11 +926,13 @@
   function renderAssignChips() {
     var el = document.getElementById("assign-chips");
     el.innerHTML = STAFF.map(function (s) {
-      return '<button class="chip' + (s.id === assignTo ? " active" : "") + '" data-chip="' + s.id + '">' + s.name + "</button>";
+      return '<button class="chip' + (assignTo.indexOf(s.id) !== -1 ? " active" : "") + '" data-chip="' + s.id + '">' + s.name + "</button>";
     }).join("");
     el.querySelectorAll("[data-chip]").forEach(function (c) {
       c.addEventListener("click", function () {
-        assignTo = c.getAttribute("data-chip");
+        var id = c.getAttribute("data-chip");
+        var i = assignTo.indexOf(id);
+        if (i !== -1) assignTo.splice(i, 1); else assignTo.push(id);
         renderAssignChips();
       });
     });
@@ -860,13 +948,15 @@
       html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done</div>";
       html += '<div class="task-list" data-staff-list="' + s.id + '">';
       html += list.length
-        ? list.map(function (t) { return taskRow(t, { del: true }); }).join("")
+        ? list.map(function (t) { return taskRow(t, { del: true, edit: true, handle: true }); }).join("")
         : '<div class="empty">Nothing assigned to ' + s.name + " yet.</div>";
       html += "</div>";
     });
     el.innerHTML = html;
-    el.querySelectorAll("[data-staff-list]").forEach(function (c) {
+    var lists = Array.prototype.slice.call(el.querySelectorAll("[data-staff-list]"));
+    lists.forEach(function (c) {
       bindTaskRows(c, function () { renderBossLists(); renderStats(); });
+      enableDrag(c, lists);
     });
   }
   function renderStats() {
@@ -915,21 +1005,26 @@
     var titleInput = document.getElementById("new-task-title");
     var title = titleInput.value.trim();
     if (!title) { toast("Type a task first"); titleInput.focus(); return; }
+    if (!assignTo.length) { toast("Pick at least one staff"); return; }
     var date = todayStr();
-    var maxOrder = 0;
-    state.tasks.forEach(function (t) {
-      if (t.assignee === assignTo && t.date === date && t.order > maxOrder) maxOrder = t.order;
+    var names = [];
+    assignTo.forEach(function (sid) {
+      var maxOrder = 0;
+      state.tasks.forEach(function (t) {
+        if (t.assignee === sid && t.date === date && t.order > maxOrder) maxOrder = t.order;
+      });
+      var task = {
+        id: uid(), title: title, customer: "",
+        assignee: sid, date: date, done: false, doneAt: null, order: maxOrder + 1
+      };
+      state.tasks.push(task);
+      apiMutate("addTask", [task]);
+      names.push(staffById(sid).name);
     });
-    var task = {
-      id: uid(), title: title, customer: "",
-      assignee: assignTo, date: date, done: false, doneAt: null, order: maxOrder + 1
-    };
-    state.tasks.push(task);
-    apiMutate("addTask", [task]);
     titleInput.value = "";
     renderBossLists();
     renderStats();
-    toast("Assigned to " + staffById(assignTo).name);
+    toast("Assigned to " + names.join(" & "));
   }
   function savePins() {
     var inputs = document.querySelectorAll("#pins-list [data-pin]");
@@ -953,7 +1048,7 @@
     else if (activeScreen === "boss") { renderBossLists(); renderStats(); }
   }
   function refreshData(showToast) {
-    if (draggingNow) return;
+    if (draggingNow || editingNow) return;
     apiGetData(function (d) {
       state = d;
       loaded = true;

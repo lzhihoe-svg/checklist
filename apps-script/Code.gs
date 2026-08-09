@@ -133,6 +133,26 @@ function setDone(id, done, doneAt) {
   });
 }
 
+function setTitle(id, title) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Tasks");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.getRange(row, 2).setValue(String(title));
+    return true;
+  });
+}
+
+function setAssignee(id, assignee) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Tasks");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.getRange(row, 4).setValue(String(assignee));
+    return true;
+  });
+}
+
 function deleteTask(id) {
   return withLock_(function () {
     var sheet = getSpreadsheet_().getSheetByName("Tasks");
