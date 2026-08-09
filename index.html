@@ -197,17 +197,13 @@
   }
   .tickbox svg { width: 15px; height: 15px; stroke: #fff; opacity: 0; transform: scale(0.4); transition: all 0.15s ease; }
   .task .t-body { flex: 1; min-width: 0; }
-  .task .t-cust {
-    display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.07em;
-    text-transform: uppercase; color: var(--lime-ink); margin-bottom: 1px;
-  }
   .task .t-title { display: block; font-weight: 600; font-size: 15px; transition: color 0.15s ease; }
   .task .t-meta { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
   .task.done { background: var(--surface-2); border-color: transparent; box-shadow: none; }
   .task.done .tickbox { background: var(--done); border-color: var(--done); }
   .task.done .tickbox svg { opacity: 1; transform: scale(1); }
   .task.done .t-title { color: var(--done); text-decoration: line-through; text-decoration-thickness: 2px; }
-  .task.done .t-cust, .task.done .t-meta { color: var(--done); }
+  .task.done .t-meta { color: var(--done); }
   .task .del, .task .handle {
     flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
     color: var(--muted);
@@ -385,13 +381,7 @@
     <div class="tab-panel active" id="tab-tasks">
       <div class="add-card">
         <div class="eyebrow" style="margin-bottom:10px;">New task</div>
-        <input type="text" id="new-task-customer" placeholder="Customer / agent (optional)" maxlength="60" />
-        <input class="field-gap" type="text" id="new-task-title" placeholder="Task — e.g. Send revised quotation" maxlength="120" />
-        <div class="chips tight" id="day-chips">
-          <button class="chip active" data-day="0">Today</button>
-          <button class="chip" data-day="1">Tomorrow</button>
-        </div>
-        <input class="field-gap" type="date" id="new-task-date" aria-label="Task date" />
+        <input type="text" id="new-task-title" placeholder="Task — e.g. Send revised quotation" maxlength="120" />
         <div class="chips" id="assign-chips"></div>
         <button class="btn-primary" id="add-task-btn">Add to checklist</button>
       </div>
@@ -447,12 +437,12 @@
     return {
       pins: JSON.parse(JSON.stringify(DEFAULT_PINS)),
       tasks: [
-        { id: uid(), title: "Check and reply company emails", customer: "",            assignee: "admin",    date: t, done: false, doneAt: null, order: 1 },
-        { id: uid(), title: "File yesterday's invoices",      customer: "",            assignee: "admin",    date: t, done: false, doneAt: null, order: 2 },
-        { id: uid(), title: "Follow up pending quotation",    customer: "Sample Sdn Bhd", assignee: "sales", date: t, done: false, doneAt: null, order: 3 },
-        { id: uid(), title: "Update customer order status",   customer: "",            assignee: "sales",    date: t, done: false, doneAt: null, order: 4 },
-        { id: uid(), title: "Morning machine safety check",   customer: "",            assignee: "operator", date: t, done: false, doneAt: null, order: 5 },
-        { id: uid(), title: "Clean work area before closing", customer: "",            assignee: "operator", date: t, done: false, doneAt: null, order: 6 }
+        { id: uid(), title: "Check and reply company emails", customer: "", assignee: "admin",    date: t, done: false, doneAt: null, order: 1 },
+        { id: uid(), title: "File yesterday's invoices",      customer: "", assignee: "admin",    date: t, done: false, doneAt: null, order: 2 },
+        { id: uid(), title: "Follow up pending quotation",    customer: "", assignee: "sales",    date: t, done: false, doneAt: null, order: 3 },
+        { id: uid(), title: "Update customer order status",   customer: "", assignee: "sales",    date: t, done: false, doneAt: null, order: 4 },
+        { id: uid(), title: "Morning machine safety check",   customer: "", assignee: "operator", date: t, done: false, doneAt: null, order: 5 },
+        { id: uid(), title: "Clean work area before closing", customer: "", assignee: "operator", date: t, done: false, doneAt: null, order: 6 }
       ]
     };
   }
@@ -697,13 +687,11 @@
   function taskRow(t, opts) {
     opts = opts || {};
     var meta = [];
-    if (opts.showDate) meta.push(dayLabel(t.date));
     if (t.done && t.doneAt) meta.push("Done " + fmtTime(t.doneAt));
     return (
       '<button class="task' + (t.done ? " done" : "") + '" data-id="' + esc(t.id) + '" aria-pressed="' + t.done + '">' +
         '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
         '<span class="t-body">' +
-          (t.customer ? '<span class="t-cust">' + esc(t.customer) + "</span>" : "") +
           '<span class="t-title">' + esc(t.title) + "</span>" +
           (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
         "</span>" +
@@ -844,23 +832,10 @@
   var assignTo = "admin";
 
   function renderBoss() {
-    renderDayChips();
     renderAssignChips();
     renderBossLists();
     renderStats();
     renderPins();
-  }
-  function renderDayChips() {
-    var input = document.getElementById("new-task-date");
-    if (!input.value) input.value = todayStr();
-    paintDayChips();
-  }
-  function paintDayChips() {
-    var input = document.getElementById("new-task-date");
-    document.querySelectorAll("#day-chips .chip").forEach(function (c) {
-      var target = todayStr(Number(c.getAttribute("data-day")));
-      c.classList.toggle("active", input.value === target);
-    });
   }
   function renderAssignChips() {
     var el = document.getElementById("assign-chips");
@@ -885,7 +860,7 @@
       html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done</div>";
       html += '<div class="task-list" data-staff-list="' + s.id + '">';
       html += list.length
-        ? list.map(function (t) { return taskRow(t, { del: true, showDate: true }); }).join("")
+        ? list.map(function (t) { return taskRow(t, { del: true }); }).join("")
         : '<div class="empty">Nothing assigned to ' + s.name + " yet.</div>";
       html += "</div>";
     });
@@ -938,26 +913,23 @@
 
   function addTask() {
     var titleInput = document.getElementById("new-task-title");
-    var custInput = document.getElementById("new-task-customer");
-    var dateInput = document.getElementById("new-task-date");
     var title = titleInput.value.trim();
     if (!title) { toast("Type a task first"); titleInput.focus(); return; }
-    var date = dateInput.value || todayStr();
+    var date = todayStr();
     var maxOrder = 0;
     state.tasks.forEach(function (t) {
       if (t.assignee === assignTo && t.date === date && t.order > maxOrder) maxOrder = t.order;
     });
     var task = {
-      id: uid(), title: title, customer: custInput.value.trim(),
+      id: uid(), title: title, customer: "",
       assignee: assignTo, date: date, done: false, doneAt: null, order: maxOrder + 1
     };
     state.tasks.push(task);
     apiMutate("addTask", [task]);
     titleInput.value = "";
-    custInput.value = "";
     renderBossLists();
     renderStats();
-    toast("Assigned to " + staffById(assignTo).name + " · " + dayLabel(date));
+    toast("Assigned to " + staffById(assignTo).name);
   }
   function savePins() {
     var inputs = document.querySelectorAll("#pins-list [data-pin]");
@@ -1022,14 +994,6 @@
     if (e.key === "Enter") addTask();
   });
   document.getElementById("save-pins-btn").addEventListener("click", savePins);
-
-  document.querySelectorAll("#day-chips .chip").forEach(function (c) {
-    c.addEventListener("click", function () {
-      document.getElementById("new-task-date").value = todayStr(Number(c.getAttribute("data-day")));
-      paintDayChips();
-    });
-  });
-  document.getElementById("new-task-date").addEventListener("change", paintDayChips);
 
   document.querySelectorAll(".tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
