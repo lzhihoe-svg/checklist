@@ -52,6 +52,13 @@ function getSpreadsheet_() {
     routines.getRange("E:E").setNumberFormat("@");
     routines.setFrozenRows(1);
   }
+  if (!ss.getSheetByName("RoutineLog")) {
+    var log = ss.insertSheet("RoutineLog");
+    log.getRange(1, 1, 1, 5).setValues([["date", "assignee", "routineId", "title", "doneAt"]]).setFontWeight("bold");
+    log.getRange("A:A").setNumberFormat("@");
+    log.getRange("C:C").setNumberFormat("@");
+    log.setFrozenRows(1);
+  }
   var stub = ss.getSheetByName("Sheet1");
   if (stub && ss.getSheets().length > 2) ss.deleteSheet(stub);
   return ss;
@@ -101,12 +108,24 @@ function getData() {
       doneAt: rr[5] ? Number(rr[5]) : null
     });
   }
+  var lVals = ss.getSheetByName("RoutineLog").getDataRange().getValues();
+  var routineLog = [];
+  for (var m = 1; m < lVals.length; m++) {
+    var lr = lVals[m];
+    if (!lr[0]) continue;
+    routineLog.push({
+      date: normDate_(lr[0]),
+      assignee: String(lr[1]),
+      routineId: String(lr[2]),
+      title: String(lr[3] || "")
+    });
+  }
   var pVals = ss.getSheetByName("Pins").getDataRange().getValues();
   var pins = {};
   for (var j = 1; j < pVals.length; j++) {
     if (pVals[j][0]) pins[String(pVals[j][0])] = padPin_(pVals[j][1]);
   }
-  return { pins: pins, tasks: tasks, routines: routines };
+  return { pins: pins, tasks: tasks, routines: routines, routineLog: routineLog };
 }
 
 function withLock_(fn) {
@@ -213,12 +232,32 @@ function addRoutine(routine) {
   });
 }
 
-function setRoutineDone(id, doneDate, doneAt) {
+/**
+ * Updates a routine's tick for the day AND keeps the permanent KPI log:
+ * ticking appends a RoutineLog row for that date; unticking removes it.
+ * effDate is the day being changed (sent by the client).
+ */
+function setRoutineDone(id, doneDate, doneAt, effDate) {
   return withLock_(function () {
-    var sheet = getSpreadsheet_().getSheetByName("Routines");
+    var ss = getSpreadsheet_();
+    var sheet = ss.getSheetByName("Routines");
     var row = findTaskRow_(sheet, id);
     if (row < 0) return false;
     sheet.getRange(row, 5, 1, 2).setValues([[doneDate ? String(doneDate) : "", doneAt ? Number(doneAt) : ""]]);
+
+    var day = String(doneDate || effDate || "");
+    if (day) {
+      var log = ss.getSheetByName("RoutineLog");
+      var vals = log.getDataRange().getValues();
+      for (var i = vals.length - 1; i >= 1; i--) {
+        if (String(vals[i][2]) === String(id) && normDate_(vals[i][0]) === day) log.deleteRow(i + 1);
+      }
+      if (doneDate) {
+        var assignee = String(sheet.getRange(row, 3).getValue());
+        var title = String(sheet.getRange(row, 2).getValue());
+        log.appendRow([day, assignee, String(id), title, doneAt ? Number(doneAt) : ""]);
+      }
+    }
     return true;
   });
 }

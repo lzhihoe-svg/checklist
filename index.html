@@ -278,6 +278,18 @@
   .stat-nums .n b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
   .stat-nums .n span { font-size: 9.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
+  .day-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 14px; box-shadow: var(--shadow); margin-bottom: 8px;
+  }
+  .day-card .d-label { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
+  .d-cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .d-cell { background: var(--surface-2); border-radius: 10px; padding: 7px 4px; text-align: center; min-width: 0; }
+  .d-cell span { display: block; font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .d-cell b { font-size: 14px; font-variant-numeric: tabular-nums; }
+  .d-cell i { display: block; font-style: normal; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .d-cell.full b { color: var(--lime-ink); }
+
   .pin-row {
     display: flex; align-items: center; gap: 12px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
@@ -419,7 +431,9 @@
 
     <div class="tab-panel" id="tab-stats">
       <div id="stats-list"></div>
-      <p class="note">Completion counts every task currently on each checklist. The app also refreshes itself every 30 minutes.</p>
+      <div class="section-label">Daily record</div>
+      <div id="history-list"></div>
+      <p class="note">The daily record keeps growing day by day — tasks are counted under the day they were assigned, routines under the day they were ticked. Deleting a task removes it from the record, so keep completed tasks if you want the full KPI history.</p>
     </div>
 
     <div class="tab-panel" id="tab-pins">
@@ -477,7 +491,8 @@
         { id: uid(), title: "Open shop & check emails",       assignee: "admin",    order: 1, doneDate: "", doneAt: null },
         { id: uid(), title: "Reply all WhatsApp enquiries",   assignee: "sales",    order: 1, doneDate: "", doneAt: null },
         { id: uid(), title: "Machine warm-up & safety check", assignee: "operator", order: 1, doneDate: "", doneAt: null }
-      ]
+      ],
+      routineLog: []
     };
   }
 
@@ -489,6 +504,7 @@
         var s = JSON.parse(raw);
         if (s && s.pins && s.tasks) {
           if (!s.routines) s.routines = [];
+          if (!s.routineLog) s.routineLog = [];
           return s;
         }
       }
@@ -500,6 +516,7 @@
           var up = {
             pins: o.pins,
             routines: [],
+            routineLog: [],
             tasks: o.tasks.map(function (task, i) {
               return { id: String(task.id), title: task.title, customer: "", assignee: task.assignee,
                        date: t, done: !!task.done, doneAt: task.doneAt || null, order: i + 1 };
@@ -555,10 +572,16 @@
       r.doneAt = r.doneAt ? Number(r.doneAt) : null;
       return r;
     });
+    d.routineLog = (d.routineLog || []).map(function (l) {
+      l.date = String(l.date);
+      l.assignee = String(l.assignee);
+      l.routineId = String(l.routineId);
+      return l;
+    });
     return d;
   }
 
-  var state = { pins: JSON.parse(JSON.stringify(DEFAULT_PINS)), tasks: [], routines: [] };
+  var state = { pins: JSON.parse(JSON.stringify(DEFAULT_PINS)), tasks: [], routines: [], routineLog: [] };
   var loaded = false;
   var lastLoad = 0;
   var draggingNow = false;
@@ -839,9 +862,19 @@
   function toggleRoutine(id) {
     var r = routineById(id);
     if (!r) return;
-    if (routineDoneToday(r)) { r.doneDate = ""; r.doneAt = null; }
-    else { r.doneDate = todayStr(); r.doneAt = Date.now(); }
-    apiMutate("setRoutineDone", [id, r.doneDate, r.doneAt]);
+    var today = todayStr();
+    if (routineDoneToday(r)) {
+      r.doneDate = "";
+      r.doneAt = null;
+      state.routineLog = state.routineLog.filter(function (l) {
+        return !(l.routineId === id && l.date === today);
+      });
+    } else {
+      r.doneDate = today;
+      r.doneAt = Date.now();
+      state.routineLog.push({ date: today, assignee: r.assignee, routineId: r.id, title: r.title });
+    }
+    apiMutate("setRoutineDone", [id, r.doneDate, r.doneAt, today]);
   }
   function removeRoutine(id) {
     state.routines = state.routines.filter(function (r) { return r.id !== id; });
@@ -1117,6 +1150,37 @@
           "</div>" +
         "</div>"
       );
+    }).join("");
+    renderHistory();
+  }
+  /* KPI history: one card per day, accumulating forever. Tasks count
+     under their assigned day; routines under the day they were ticked. */
+  function renderHistory() {
+    var el = document.getElementById("history-list");
+    var dates = {};
+    state.tasks.forEach(function (t) { dates[t.date] = true; });
+    state.routineLog.forEach(function (l) { dates[l.date] = true; });
+    var sorted = Object.keys(dates).sort().reverse().slice(0, 30);
+    if (!sorted.length) {
+      el.innerHTML = '<div class="empty">No records yet — they build up day by day as work gets done.</div>';
+      return;
+    }
+    el.innerHTML = sorted.map(function (date) {
+      var cells = STAFF.map(function (s) {
+        var dayTasks = state.tasks.filter(function (t) { return t.assignee === s.id && t.date === date; });
+        var tDone = dayTasks.filter(function (t) { return t.done; }).length;
+        var rDone = state.routineLog.filter(function (l) { return l.assignee === s.id && l.date === date; }).length;
+        var rTotal = routinesFor(s.id).length;
+        var full = dayTasks.length + rTotal > 0 && tDone === dayTasks.length && rDone >= rTotal;
+        return (
+          '<div class="d-cell' + (full ? " full" : "") + '">' +
+            "<span>" + s.name + "</span>" +
+            "<b>" + tDone + "/" + dayTasks.length + "</b>" +
+            "<i>Routine " + rDone + "/" + rTotal + "</i>" +
+          "</div>"
+        );
+      }).join("");
+      return '<div class="day-card"><div class="d-label">' + dayLabel(date) + '</div><div class="d-cells">' + cells + "</div></div>";
     }).join("");
   }
   function renderPins() {
