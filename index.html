@@ -224,6 +224,8 @@
   .task .del svg, .task .edit svg, .task .handle svg { width: 17px; height: 17px; stroke: currentColor; }
   .task .handle { touch-action: none; cursor: grab; }
   .task .handle svg { width: 19px; height: 19px; }
+  .task.static { cursor: default; }
+  .task.static:active { transform: none; }
   .task input.t-edit {
     width: 100%; border: 1.5px solid var(--lime); background: var(--bg);
     border-radius: 8px; padding: 7px 10px; font-size: 15px; font-weight: 600;
@@ -239,8 +241,8 @@
     display: flex; gap: 6px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin-bottom: 16px;
   }
   .tab {
-    flex: 1; padding: 9px 4px; border-radius: 9px; font-size: 13.5px; font-weight: 700; color: var(--muted);
-    transition: all 0.12s ease;
+    flex: 1; padding: 9px 2px; border-radius: 9px; font-size: 12.5px; font-weight: 700; color: var(--muted);
+    transition: all 0.12s ease; white-space: nowrap;
   }
   .tab.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
   .tab-panel { display: none; }
@@ -382,7 +384,8 @@
     </div>
     <div class="tabs" role="tablist" id="staff-tabs">
       <button class="tab active" data-stab="tasks">My Tasks</button>
-      <button class="tab" data-stab="routine">Daily Routine</button>
+      <button class="tab" data-stab="routine">Routine</button>
+      <button class="tab" data-stab="history">History</button>
     </div>
     <div class="progress-card">
       <div class="p-row">
@@ -414,6 +417,7 @@
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="tasks">Tasks</button>
       <button class="tab" data-tab="routine">Routine</button>
+      <button class="tab" data-tab="history">History</button>
       <button class="tab" data-tab="stats">Stats</button>
       <button class="tab" data-tab="pins">PINs</button>
     </div>
@@ -441,6 +445,11 @@
       </div>
       <div id="boss-routines"></div>
       <p class="note">Routines show up on staff checklists every single day and untick themselves automatically each morning. Drag between staff to reassign; tap ✎ to edit.</p>
+    </div>
+
+    <div class="tab-panel" id="tab-history">
+      <div id="boss-history"></div>
+      <p class="note">Everything completed moves here automatically after midnight — tasks under the day they were ticked, routines under their day. Active lists stay clean while the full record keeps growing.</p>
     </div>
 
     <div class="tab-panel" id="tab-stats">
@@ -653,6 +662,66 @@
     return { id: r.id, title: r.title, done: done, doneAt: done ? r.doneAt : null };
   }
   function kindOf(listEl) { return listEl.getAttribute("data-kind") === "routine" ? "routine" : "task"; }
+  function dateOfMs(ms) {
+    var d = new Date(ms);
+    return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+  }
+  function doneDayOf(t) { return t.doneAt ? dateOfMs(t.doneAt) : t.date; }
+  /* Active = pending, or completed today. Completed items move to
+     History automatically once the clock passes midnight. */
+  function isActiveTask(t) { return !t.done || doneDayOf(t) >= todayStr(); }
+  function historyItems(staffId) {
+    var today = todayStr();
+    var items = [];
+    state.tasks.forEach(function (t) {
+      if (!t.done) return;
+      var d = doneDayOf(t);
+      if (d >= today) return;
+      if (staffId && t.assignee !== staffId) return;
+      items.push({ date: d, title: t.title, source: t.source, doneAt: t.doneAt, assignee: t.assignee, routine: false });
+    });
+    state.routineLog.forEach(function (l) {
+      if (l.date >= today) return;
+      if (staffId && l.assignee !== staffId) return;
+      items.push({ date: l.date, title: l.title, source: "", doneAt: null, assignee: l.assignee, routine: true });
+    });
+    return items;
+  }
+  function renderHistoryInto(el, staffId, showStaffName) {
+    var items = historyItems(staffId);
+    if (!items.length) {
+      el.innerHTML = '<div class="empty">Nothing here yet — completed work moves here after midnight.</div>';
+      return 0;
+    }
+    var byDate = {};
+    items.forEach(function (i) { (byDate[i.date] = byDate[i.date] || []).push(i); });
+    var dates = Object.keys(byDate).sort().reverse().slice(0, 30);
+    el.innerHTML = dates.map(function (date) {
+      var rows = byDate[date].map(function (i) {
+        var sm = i.source ? SOURCE_META[i.source] : null;
+        var meta = [];
+        if (showStaffName) meta.push(staffById(i.assignee).name);
+        if (i.routine) meta.push("Routine");
+        if (i.doneAt) meta.push("Done " + fmtTime(i.doneAt));
+        return (
+          '<div class="task done win static">' +
+            '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
+            '<span class="t-body">' +
+              '<span class="t-title">' + esc(i.title) + "</span>" +
+              (sm ? '<span class="t-src">' + sm.icon + sm.label + "</span>" : "") +
+              (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
+            "</span>" +
+          "</div>"
+        );
+      }).join("");
+      return (
+        '<div class="section-label">' + dayLabel(date) +
+          ' <span class="count">· ' + byDate[date].length + " completed</span></div>" +
+        '<div class="task-list">' + rows + "</div>"
+      );
+    }).join("");
+    return items.length;
+  }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -1030,22 +1099,31 @@
   function renderStaff(id) {
     currentStaff = id;
     var r = staffById(id);
-    var list = tasksFor(id);
+    var list = tasksFor(id).filter(isActiveTask);
     var routines = routinesFor(id);
     var doneTasks = list.filter(function (t) { return t.done; }).length;
     var doneRoutines = routines.filter(routineDoneToday).length;
     var onRoutine = staffTab === "routine";
-    var total = onRoutine ? routines.length : list.length;
-    var done = onRoutine ? doneRoutines : doneTasks;
-    var pct = total ? Math.round((done / total) * 100) : 0;
 
     document.getElementById("staff-title").textContent = r.name + "'s Checklist";
     document.getElementById("staff-sub").textContent = r.desc;
+
+    var el = document.getElementById("staff-groups");
+    if (staffTab === "history") {
+      var n = renderHistoryInto(el, id, false);
+      document.getElementById("staff-pct").textContent = n;
+      document.getElementById("staff-count").textContent = "completed before today";
+      document.getElementById("staff-bar").style.width = "100%";
+      return;
+    }
+
+    var total = onRoutine ? routines.length : list.length;
+    var done = onRoutine ? doneRoutines : doneTasks;
+    var pct = total ? Math.round((done / total) * 100) : 0;
     document.getElementById("staff-pct").textContent = pct + "%";
     document.getElementById("staff-count").textContent = done + " of " + total + (onRoutine ? " done today" : " done");
     document.getElementById("staff-bar").style.width = pct + "%";
 
-    var el = document.getElementById("staff-groups");
     var html = "";
     if (onRoutine) {
       html = routines.length
@@ -1099,8 +1177,12 @@
     renderChipPicker("routine-chips", assignRoutineTo);
     renderBossLists();
     renderBossRoutines();
+    renderBossHistory();
     renderStats();
     renderPins();
+  }
+  function renderBossHistory() {
+    renderHistoryInto(document.getElementById("boss-history"), null, true);
   }
   function renderChipPicker(elId, selected) {
     var el = document.getElementById(elId);
@@ -1120,7 +1202,7 @@
     var el = document.getElementById("boss-lists");
     var html = "";
     STAFF.forEach(function (s) {
-      var list = tasksFor(s.id).sort(function (a, b) {
+      var list = tasksFor(s.id).filter(isActiveTask).sort(function (a, b) {
         return a.date < b.date ? -1 : a.date > b.date ? 1 : a.order - b.order;
       });
       var done = list.filter(function (t) { return t.done; }).length;
@@ -1299,7 +1381,7 @@
   function rerenderActive() {
     if (activeScreen === "home") renderHome();
     else if (activeScreen === "staff" && currentStaff) renderStaff(currentStaff);
-    else if (activeScreen === "boss") { renderBossLists(); renderBossRoutines(); renderStats(); }
+    else if (activeScreen === "boss") { renderBossLists(); renderBossRoutines(); renderBossHistory(); renderStats(); }
   }
   function updateStamp() {
     if (!lastLoad) return;
