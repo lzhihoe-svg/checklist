@@ -7,7 +7,7 @@
  */
 
 var SS_PROP = "SPREADSHEET_ID";
-var TASK_HEADERS = ["id", "title", "customer", "assignee", "date", "done", "doneAt", "order"];
+var TASK_HEADERS = ["id", "title", "source", "assignee", "date", "done", "doneAt", "order"];
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("index")
@@ -86,7 +86,7 @@ function getData() {
     tasks.push({
       id: String(r[0]),
       title: String(r[1]),
-      customer: String(r[2] || ""),
+      source: String(r[2] || ""),
       assignee: String(r[3]),
       date: normDate_(r[4]),
       done: r[5] === true || String(r[5]).toUpperCase() === "TRUE",
@@ -152,7 +152,7 @@ function addTask(task) {
     sheet.appendRow([
       String(task.id),
       String(task.title),
-      String(task.customer || ""),
+      String(task.source || ""),
       String(task.assignee),
       String(task.date),
       false,

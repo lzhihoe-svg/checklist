@@ -198,6 +198,12 @@
   .tickbox svg { width: 15px; height: 15px; stroke: #fff; opacity: 0; transform: scale(0.4); transition: all 0.15s ease; }
   .task .t-body { flex: 1; min-width: 0; }
   .task .t-title { display: block; font-weight: 600; font-size: 15px; transition: color 0.15s ease; }
+  .task .t-src {
+    display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+    color: var(--muted); margin-top: 3px;
+  }
+  .task .t-src svg { width: 14px; height: 14px; flex: none; }
+  .task.done .t-src { opacity: 0.65; }
   .task .t-meta { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
   .task.done { background: var(--surface-2); border-color: transparent; box-shadow: none; }
   .task.done .tickbox { background: var(--done); border-color: var(--done); }
@@ -252,7 +258,12 @@
   .chip {
     padding: 8px 15px; border-radius: 99px; font-size: 13.5px; font-weight: 700;
     background: var(--surface-2); color: var(--muted); border: 1.5px solid transparent;
-    transition: all 0.12s ease;
+    transition: all 0.12s ease; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip svg { width: 14px; height: 14px; flex: none; }
+  .mini-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin: 12px 2px 0;
   }
   .chip.active { background: var(--lime-soft); color: var(--lime-ink); border-color: var(--lime); }
   .btn-primary {
@@ -411,6 +422,9 @@
       <div class="add-card">
         <div class="eyebrow" style="margin-bottom:10px;">New task</div>
         <input type="text" id="new-task-title" placeholder="Task — e.g. Send revised quotation" maxlength="120" />
+        <div class="mini-label">Source</div>
+        <div class="chips tight" id="source-chips"></div>
+        <div class="mini-label">Assign to</div>
         <div class="chips" id="assign-chips"></div>
         <button class="btn-primary" id="add-task-btn">Add to checklist</button>
       </div>
@@ -467,6 +481,31 @@
   var BOSS = { id: "boss", name: "Boss", desc: "Full panel access" };
   var DEFAULT_PINS = { boss: "9999", admin: "1111", sales: "2222", operator: "3333" };
 
+  var SOURCES = [
+    { id: "whatsapp", label: "WhatsApp", icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="11.5" r="8.5" fill="#25D366"/>' +
+      '<path d="M4.6 21.6l1.5-4 3 2.6z" fill="#25D366"/>' +
+      '<path d="M9.9 7.2l.9 1.8c.1.3.1.6-.1.8l-.7.7c.7 1.5 1.9 2.7 3.4 3.4l.7-.7c.2-.2.5-.3.8-.1l1.8.9c.4.2.5.6.4 1-.3 1-1.3 1.7-2.3 1.5-3.5-.8-6.3-3.6-7.1-7.1-.2-1 .5-2 1.5-2.3.4-.1.8 0 .7.1z" fill="#fff"/></svg>' },
+    { id: "gmail", label: "Gmail", icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#EA4335" stroke-width="2">' +
+      '<rect x="3" y="5.5" width="18" height="13" rx="2"/>' +
+      '<path d="M4.5 7.5L12 13l7.5-5.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+    { id: "drive", label: "Google Drive", icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2.6" stroke-linecap="round">' +
+      '<path d="M12 4.5L4.8 17" stroke="#34A853"/>' +
+      '<path d="M12 4.5L19.2 17" stroke="#FBBC04"/>' +
+      '<path d="M4.8 17h14.4" stroke="#4285F4"/></svg>' },
+    { id: "walkin", label: "Walk In", icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="13.5" cy="4" r="1.9" fill="currentColor" stroke="none"/>' +
+      '<path d="M13.5 7.5l-2 5.5L9 20"/>' +
+      '<path d="M11.5 13l3.5 2 1 4.5"/>' +
+      '<path d="M13.5 7.5l3 2.5 2.5.5"/>' +
+      '<path d="M13.5 7.5L10 9l-1.5 3"/></svg>' }
+  ];
+  var SOURCE_META = {};
+  SOURCES.forEach(function (s) { SOURCE_META[s.id] = s; });
+
   function p2(n) { return (n < 10 ? "0" : "") + n; }
   function todayStr(offsetDays) {
     var d = new Date();
@@ -480,12 +519,12 @@
     return {
       pins: JSON.parse(JSON.stringify(DEFAULT_PINS)),
       tasks: [
-        { id: uid(), title: "Check and reply company emails", customer: "", assignee: "admin",    date: t, done: false, doneAt: null, order: 1 },
-        { id: uid(), title: "File yesterday's invoices",      customer: "", assignee: "admin",    date: t, done: false, doneAt: null, order: 2 },
-        { id: uid(), title: "Follow up pending quotation",    customer: "", assignee: "sales",    date: t, done: false, doneAt: null, order: 3 },
-        { id: uid(), title: "Update customer order status",   customer: "", assignee: "sales",    date: t, done: false, doneAt: null, order: 4 },
-        { id: uid(), title: "Morning machine safety check",   customer: "", assignee: "operator", date: t, done: false, doneAt: null, order: 5 },
-        { id: uid(), title: "Clean work area before closing", customer: "", assignee: "operator", date: t, done: false, doneAt: null, order: 6 }
+        { id: uid(), title: "Check and reply company emails", source: "gmail",    assignee: "admin",    date: t, done: false, doneAt: null, order: 1 },
+        { id: uid(), title: "File yesterday's invoices",      source: "drive",    assignee: "admin",    date: t, done: false, doneAt: null, order: 2 },
+        { id: uid(), title: "Follow up pending quotation",    source: "whatsapp", assignee: "sales",    date: t, done: false, doneAt: null, order: 3 },
+        { id: uid(), title: "Update customer order status",   source: "",         assignee: "sales",    date: t, done: false, doneAt: null, order: 4 },
+        { id: uid(), title: "Morning machine safety check",   source: "",         assignee: "operator", date: t, done: false, doneAt: null, order: 5 },
+        { id: uid(), title: "Sticker collection at counter",  source: "walkin",   assignee: "operator", date: t, done: false, doneAt: null, order: 6 }
       ],
       routines: [
         { id: uid(), title: "Open shop & check emails",       assignee: "admin",    order: 1, doneDate: "", doneAt: null },
@@ -518,7 +557,7 @@
             routines: [],
             routineLog: [],
             tasks: o.tasks.map(function (task, i) {
-              return { id: String(task.id), title: task.title, customer: "", assignee: task.assignee,
+              return { id: String(task.id), title: task.title, source: "", assignee: task.assignee,
                        date: t, done: !!task.done, doneAt: task.doneAt || null, order: i + 1 };
             })
           };
@@ -560,7 +599,7 @@
     Object.keys(DEFAULT_PINS).forEach(function (k) { if (!d.pins[k]) d.pins[k] = DEFAULT_PINS[k]; });
     d.tasks = (d.tasks || []).map(function (t) {
       t.id = String(t.id);
-      t.customer = t.customer || "";
+      t.source = t.source && SOURCE_META[t.source] ? t.source : "";
       t.date = t.date || todayStr();
       t.order = Number(t.order) || 0;
       return t;
@@ -772,12 +811,14 @@
     opts = opts || {};
     var meta = [];
     if (t.done && t.doneAt) meta.push("Done " + fmtTime(t.doneAt));
+    var sm = t.source ? SOURCE_META[t.source] : null;
     return (
       '<div class="task' + (t.done ? " done" : "") + (opts.win && t.done ? " win" : "") +
         '" role="button" tabindex="0" data-id="' + esc(t.id) + '" aria-pressed="' + t.done + '">' +
         '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
         '<span class="t-body">' +
           '<span class="t-title">' + esc(t.title) + "</span>" +
+          (sm ? '<span class="t-src">' + sm.icon + sm.label + "</span>" : "") +
           (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
         "</span>" +
         (opts.edit
@@ -1037,8 +1078,23 @@
   /* ---------- boss panel ---------- */
   var assignTo = ["admin"];
   var assignRoutineTo = ["admin"];
+  var newSource = "";
 
+  function renderSourceChips() {
+    var el = document.getElementById("source-chips");
+    el.innerHTML = SOURCES.map(function (s) {
+      return '<button class="chip' + (newSource === s.id ? " active" : "") + '" data-src="' + s.id + '">' + s.icon + s.label + "</button>";
+    }).join("");
+    el.querySelectorAll("[data-src]").forEach(function (c) {
+      c.addEventListener("click", function () {
+        var id = c.getAttribute("data-src");
+        newSource = newSource === id ? "" : id;
+        renderSourceChips();
+      });
+    });
+  }
   function renderBoss() {
+    renderSourceChips();
     renderChipPicker("assign-chips", assignTo);
     renderChipPicker("routine-chips", assignRoutineTo);
     renderBossLists();
@@ -1210,7 +1266,7 @@
         if (t.assignee === sid && t.date === date && t.order > maxOrder) maxOrder = t.order;
       });
       var task = {
-        id: uid(), title: title, customer: "",
+        id: uid(), title: title, source: newSource,
         assignee: sid, date: date, done: false, doneAt: null, order: maxOrder + 1
       };
       state.tasks.push(task);
@@ -1218,6 +1274,8 @@
       names.push(staffById(sid).name);
     });
     titleInput.value = "";
+    newSource = "";
+    renderSourceChips();
     renderBossLists();
     renderStats();
     toast("Assigned to " + names.join(" & "));
