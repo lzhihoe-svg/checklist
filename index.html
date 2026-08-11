@@ -449,7 +449,7 @@
 
     <div class="tab-panel" id="tab-history">
       <div id="boss-history"></div>
-      <p class="note">Everything completed moves here automatically after midnight — tasks under the day they were ticked, routines under their day. Active lists stay clean while the full record keeps growing.</p>
+      <p class="note">Completed work collects here automatically — a task from a past day moves in the moment it's ticked; today's tasks move in after midnight. Routines arrive after their day ends. Active lists stay clean while the full record keeps growing.</p>
     </div>
 
     <div class="tab-panel" id="tab-stats">
@@ -667,18 +667,22 @@
     return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
   }
   function doneDayOf(t) { return t.doneAt ? dateOfMs(t.doneAt) : t.date; }
-  /* Active = pending, or completed today. Completed items move to
-     History automatically once the clock passes midnight. */
-  function isActiveTask(t) { return !t.done || doneDayOf(t) >= todayStr(); }
+  /* A completed task stays on My Tasks only while BOTH its assigned day
+     and its completion day are still current — tick a task from a past
+     day and it goes straight to History; tick today's task and it stays
+     green until midnight. Pending tasks always stay on My Tasks. */
+  function isActiveTask(t) {
+    if (!t.done) return true;
+    var today = todayStr();
+    return t.date >= today && doneDayOf(t) >= today;
+  }
   function historyItems(staffId) {
     var today = todayStr();
     var items = [];
     state.tasks.forEach(function (t) {
-      if (!t.done) return;
-      var d = doneDayOf(t);
-      if (d >= today) return;
+      if (!t.done || isActiveTask(t)) return;
       if (staffId && t.assignee !== staffId) return;
-      items.push({ date: d, title: t.title, source: t.source, doneAt: t.doneAt, assignee: t.assignee, routine: false });
+      items.push({ date: doneDayOf(t), title: t.title, source: t.source, doneAt: t.doneAt, assignee: t.assignee, routine: false });
     });
     state.routineLog.forEach(function (l) {
       if (l.date >= today) return;
@@ -690,7 +694,7 @@
   function renderHistoryInto(el, staffId, showStaffName) {
     var items = historyItems(staffId);
     if (!items.length) {
-      el.innerHTML = '<div class="empty">Nothing here yet — completed work moves here after midnight.</div>';
+      el.innerHTML = '<div class="empty">Nothing here yet — completed work from finished days collects here.</div>';
       return 0;
     }
     var byDate = {};
@@ -1112,7 +1116,7 @@
     if (staffTab === "history") {
       var n = renderHistoryInto(el, id, false);
       document.getElementById("staff-pct").textContent = n;
-      document.getElementById("staff-count").textContent = "completed before today";
+      document.getElementById("staff-count").textContent = "completed & archived";
       document.getElementById("staff-bar").style.width = "100%";
       return;
     }
@@ -1445,9 +1449,10 @@
   });
   document.getElementById("save-pins-btn").addEventListener("click", savePins);
 
-  document.querySelectorAll(".tab").forEach(function (tab) {
+  var bossTabs = document.querySelectorAll("#screen-boss .tab[data-tab]");
+  bossTabs.forEach(function (tab) {
     tab.addEventListener("click", function () {
-      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+      bossTabs.forEach(function (t) { t.classList.remove("active"); });
       document.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.remove("active"); });
       tab.classList.add("active");
       document.getElementById("tab-" + tab.getAttribute("data-tab")).classList.add("active");
