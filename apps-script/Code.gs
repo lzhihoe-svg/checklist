@@ -183,6 +183,16 @@ function setTitle(id, title) {
   });
 }
 
+function setSource(id, source) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Tasks");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.getRange(row, 3).setValue(String(source || ""));
+    return true;
+  });
+}
+
 function setAssignee(id, assignee) {
   return withLock_(function () {
     var sheet = getSpreadsheet_().getSheetByName("Tasks");
