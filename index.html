@@ -201,9 +201,10 @@
   .task .t-body { flex: 1; min-width: 0; }
   .task .t-title { display: block; font-weight: 600; font-size: 15px; transition: color 0.15s ease; }
   .task .t-src {
-    display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
-    color: var(--muted); margin-top: 3px;
+    display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap;
+    font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 3px;
   }
+  .task .t-src .src-item { display: inline-flex; align-items: center; gap: 5px; }
   .task .t-src svg { width: 14px; height: 14px; flex: none; }
   .task.done .t-src { opacity: 0.65; }
   .task .t-meta { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -644,6 +645,22 @@
       '<path d="M12 4.5L4.8 17" stroke="#34A853"/>' +
       '<path d="M12 4.5L19.2 17" stroke="#FBBC04"/>' +
       '<path d="M4.8 17h14.4" stroke="#4285F4"/></svg>' },
+    { id: "sheets", label: "Google Sheets", icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#0F9D58" stroke-width="2">' +
+      '<rect x="4" y="3" width="16" height="18" rx="2"/>' +
+      '<path d="M8 9h8M8 13h8M8 17h4M12 9v8" stroke-linecap="round"/></svg>' },
+    { id: "slack", label: "Slack", icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="3" stroke-linecap="round">' +
+      '<path d="M9 4.5v15" stroke="#36C5F0"/>' +
+      '<path d="M15 4.5v15" stroke="#2EB67D"/>' +
+      '<path d="M4.5 9h15" stroke="#ECB22E"/>' +
+      '<path d="M4.5 15h15" stroke="#E01E5A"/></svg>' },
+    { id: "lalamove", label: "Lalamove", icon:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#F16622" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M2 6h11v9H2z"/>' +
+      '<path d="M13 9h4l3 3v3h-7"/>' +
+      '<circle cx="6.5" cy="17.5" r="1.8"/>' +
+      '<circle cx="16.5" cy="17.5" r="1.8"/></svg>' },
     { id: "walkin", label: "Walk In", icon:
       '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
       '<circle cx="13.5" cy="4" r="1.9" fill="currentColor" stroke="none"/>' +
@@ -654,6 +671,18 @@
   ];
   var SOURCE_META = {};
   SOURCES.forEach(function (s) { SOURCE_META[s.id] = s; });
+  /* A task can have several sources, stored comma-separated */
+  function srcList(t) {
+    return String(t.source || "").split(",").filter(function (k) { return SOURCE_META[k]; });
+  }
+  function srcHtml(t) {
+    var srcs = srcList(t);
+    if (!srcs.length) return "";
+    return '<span class="t-src">' + srcs.map(function (k) {
+      var m = SOURCE_META[k];
+      return '<span class="src-item">' + m.icon + m.label + "</span>";
+    }).join("") + "</span>";
+  }
 
   function p2(n) { return (n < 10 ? "0" : "") + n; }
   function todayStr(offsetDays) {
@@ -748,7 +777,7 @@
     Object.keys(DEFAULT_PINS).forEach(function (k) { if (!d.pins[k]) d.pins[k] = DEFAULT_PINS[k]; });
     d.tasks = (d.tasks || []).map(function (t) {
       t.id = String(t.id);
-      t.source = t.source && SOURCE_META[t.source] ? t.source : "";
+      t.source = srcList(t).join(",");
       t.date = t.date || todayStr();
       t.order = Number(t.order) || 0;
       t.dueAt = t.dueAt ? Number(t.dueAt) : null;
@@ -863,7 +892,6 @@
     var dates = Object.keys(byDate).sort().reverse().slice(0, 30);
     el.innerHTML = dates.map(function (date) {
       var rows = byDate[date].map(function (i) {
-        var sm = i.source ? SOURCE_META[i.source] : null;
         var meta = [];
         if (showStaffName) meta.push(staffById(i.assignee).name);
         if (i.routine) meta.push("Routine");
@@ -874,7 +902,7 @@
             '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
             '<span class="t-body">' +
               '<span class="t-title">' + esc(i.title) + "</span>" +
-              (sm ? '<span class="t-src">' + sm.icon + sm.label + "</span>" : "") +
+              srcHtml(i) +
               (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
             "</span>" +
           "</div>"
@@ -1053,14 +1081,13 @@
       var due = fmtDue(t);
       metaHtml = '<span class="t-meta' + due.cls + '">' + due.text + "</span>";
     }
-    var sm = t.source ? SOURCE_META[t.source] : null;
     return (
       '<div class="task' + (t.done ? " done" : "") + (opts.win && t.done ? " win" : "") +
         '" role="button" tabindex="0" data-id="' + esc(t.id) + '" aria-pressed="' + t.done + '">' +
         '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
         '<span class="t-body">' +
           '<span class="t-title">' + esc(t.title) + "</span>" +
-          (sm ? '<span class="t-src">' + sm.icon + sm.label + "</span>" : "") +
+          srcHtml(t) +
           metaHtml +
         "</span>" +
         (opts.edit
@@ -1113,10 +1140,10 @@
     if (!t) return;
     row.classList.add("editing");
     editingNow = true;
-    var editSource = t.source || "";
+    var editSource = kind === "routine" ? [] : srcList(t);
     var body = row.querySelector(".t-body");
     var chipsHtml = kind === "routine" ? "" : SOURCES.map(function (s) {
-      return '<button class="chip' + (editSource === s.id ? " active" : "") + '" data-esrc="' + s.id + '">' + s.icon + s.label + "</button>";
+      return '<button class="chip' + (editSource.indexOf(s.id) !== -1 ? " active" : "") + '" data-esrc="' + s.id + '">' + s.icon + s.label + "</button>";
     }).join("");
     body.innerHTML =
       '<input class="t-edit" type="text" maxlength="120" value="' + esc(t.title) + '" />' +
@@ -1131,9 +1158,10 @@
       c.addEventListener("click", function (e) {
         e.stopPropagation();
         var id = c.getAttribute("data-esrc");
-        editSource = editSource === id ? "" : id;
+        var i = editSource.indexOf(id);
+        if (i !== -1) editSource.splice(i, 1); else editSource.push(id);
         body.querySelectorAll("[data-esrc]").forEach(function (x) {
-          x.classList.toggle("active", x.getAttribute("data-esrc") === editSource);
+          x.classList.toggle("active", editSource.indexOf(x.getAttribute("data-esrc")) !== -1);
         });
       });
     });
@@ -1150,9 +1178,10 @@
         apiMutate(kind === "routine" ? "setRoutineTitle" : "setTitle", [t.id, v]);
         changed = true;
       }
-      if (kind !== "routine" && editSource !== (t.source || "")) {
-        t.source = editSource;
-        apiMutate("setSource", [t.id, editSource]);
+      var newSrc = editSource.join(",");
+      if (kind !== "routine" && newSrc !== srcList(t).join(",")) {
+        t.source = newSrc;
+        apiMutate("setSource", [t.id, newSrc]);
         changed = true;
       }
       if (changed) toast(kind === "routine" ? "Routine updated" : "Task updated");
@@ -1387,28 +1416,27 @@
   /* ---------- boss panel & delegation ---------- */
   var assignTo = ["admin"];
   var assignRoutineTo = ["admin"];
-  var newSource = "";
+  var newSource = [];
   var delAssignTo = ["sales"];
-  var delSource = "";
+  var delSource = [];
 
-  function paintSourcePicker(elId, current, onPick) {
+  /* multi-select: tap chips to add/remove sources */
+  function paintSourcePicker(elId, selected) {
     var el = document.getElementById(elId);
     el.innerHTML = SOURCES.map(function (s) {
-      return '<button class="chip' + (current === s.id ? " active" : "") + '" data-src="' + s.id + '">' + s.icon + s.label + "</button>";
+      return '<button class="chip' + (selected.indexOf(s.id) !== -1 ? " active" : "") + '" data-src="' + s.id + '">' + s.icon + s.label + "</button>";
     }).join("");
     el.querySelectorAll("[data-src]").forEach(function (c) {
       c.addEventListener("click", function () {
         var id = c.getAttribute("data-src");
-        onPick(current === id ? "" : id);
+        var i = selected.indexOf(id);
+        if (i !== -1) selected.splice(i, 1); else selected.push(id);
+        paintSourcePicker(elId, selected);
       });
     });
   }
-  function renderSourceChips() {
-    paintSourcePicker("source-chips", newSource, function (v) { newSource = v; renderSourceChips(); });
-  }
-  function renderDelSourceChips() {
-    paintSourcePicker("del-source-chips", delSource, function (v) { delSource = v; renderDelSourceChips(); });
-  }
+  function renderSourceChips() { paintSourcePicker("source-chips", newSource); }
+  function renderDelSourceChips() { paintSourcePicker("del-source-chips", delSource); }
   function renderBoss() {
     renderSourceChips();
     renderChipPicker("assign-chips", assignTo);
@@ -1609,9 +1637,9 @@
     var title = titleInput.value.trim();
     if (!title) { toast("Type a task first"); titleInput.focus(); return; }
     if (!assignTo.length) { toast("Pick at least one staff"); return; }
-    var names = createTasks(title, newSource, assignTo);
+    var names = createTasks(title, newSource.join(","), assignTo);
     titleInput.value = "";
-    newSource = "";
+    newSource = [];
     renderSourceChips();
     renderBossLists();
     renderStats();
@@ -1622,9 +1650,9 @@
     var title = input.value.trim();
     if (!title) { toast("Type a task first"); input.focus(); return; }
     if (!delAssignTo.length) { toast("Pick at least one person"); return; }
-    var names = createTasks(title, delSource, delAssignTo);
+    var names = createTasks(title, delSource.join(","), delAssignTo);
     input.value = "";
-    delSource = "";
+    delSource = [];
     renderDelSourceChips();
     renderDelegateLists();
     toast("Assigned to " + names.join(" & "));
