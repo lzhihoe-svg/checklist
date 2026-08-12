@@ -7,7 +7,7 @@
  */
 
 var SS_PROP = "SPREADSHEET_ID";
-var TASK_HEADERS = ["id", "title", "source", "assignee", "date", "done", "doneAt", "order"];
+var TASK_HEADERS = ["id", "title", "source", "assignee", "date", "done", "doneAt", "order", "dueAt"];
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("index")
@@ -91,7 +91,8 @@ function getData() {
       date: normDate_(r[4]),
       done: r[5] === true || String(r[5]).toUpperCase() === "TRUE",
       doneAt: r[6] ? Number(r[6]) : null,
-      order: Number(r[7]) || 0
+      order: Number(r[7]) || 0,
+      dueAt: r[8] ? Number(r[8]) : null
     });
   }
   var rVals = ss.getSheetByName("Routines").getDataRange().getValues();
@@ -157,7 +158,8 @@ function addTask(task) {
       String(task.date),
       false,
       "",
-      Number(task.order) || 0
+      Number(task.order) || 0,
+      task.dueAt ? Number(task.dueAt) : ""
     ]);
     return true;
   });

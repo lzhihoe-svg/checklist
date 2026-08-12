@@ -212,6 +212,13 @@
   .task.done .tickbox svg { opacity: 1; transform: scale(1); }
   .task.done .t-title { color: var(--done); text-decoration: line-through; text-decoration-thickness: 2px; }
   .task.done .t-meta { color: var(--done); }
+  .t-meta.overdue { color: var(--danger); font-weight: 700; }
+  .late-tag { color: var(--danger); font-weight: 800; }
+  .pen-pill {
+    font-size: 11px; font-weight: 800; border-radius: 99px; padding: 3px 9px;
+    background: var(--surface-2); color: var(--muted); flex: none;
+  }
+  .pen-pill.bad { background: rgba(192, 69, 62, 0.14); color: var(--danger); }
   /* Staff view: a completed task celebrates in green instead of fading to grey */
   .task.done.win { background: var(--lime-soft); border-color: transparent; }
   .task.done.win .tickbox { background: var(--lime); border-color: var(--lime); }
@@ -465,7 +472,7 @@
       <div id="stats-list"></div>
       <div class="section-label">Daily record</div>
       <div id="history-list"></div>
-      <p class="note">The daily record keeps growing day by day — tasks are counted under the day they were assigned, routines under the day they were ticked. Deleting a task removes it from the record, so keep completed tasks if you want the full KPI history.</p>
+      <p class="note">The daily record keeps growing day by day — tasks are counted under the day they were assigned, routines under the day they were ticked. Deleting a task removes it from the record, so keep completed tasks if you want the full KPI history. Penalty points count every task not completed within its deadline window (30 minutes during working hours; by 12pm otherwise) — finishing late keeps the point.</p>
     </div>
 
     <div class="tab-panel" id="tab-pins">
@@ -498,6 +505,47 @@
   ];
   var BOSS = { id: "boss", name: "Zhi Hoe", desc: "Boss · Full panel access" };
   var DEFAULT_PINS = { boss: "9999", admin: "1111", sales: "2222", operator: "3333" };
+
+  /* ---------- deadlines & penalties ----------
+     Working hours: 10:30am-4:30pm, Mon-Fri, excluding the public
+     holidays below. A task keyed in during working hours gets a
+     30-minute window; keyed in outside working hours it is due by
+     12:00pm on the next working day (same day if keyed in before
+     noon). Missing the deadline = 1 penalty point on the boss panel.
+     EDIT the HOLIDAYS list each year - religious-holiday dates are
+     estimates; add your state's holidays too. */
+  var WORK_START_MIN = 10 * 60 + 30;
+  var WORK_END_MIN = 16 * 60 + 30;
+  var HOLIDAYS = [
+    "2026-01-01",               // New Year's Day
+    "2026-02-17", "2026-02-18", // Chinese New Year (est.)
+    "2026-03-20", "2026-03-21", // Hari Raya Aidilfitri (est.)
+    "2026-05-01",               // Labour Day
+    "2026-05-27",               // Hari Raya Haji (est.)
+    "2026-05-31", "2026-06-01", // Wesak Day (est.), Agong's Birthday
+    "2026-06-16",               // Awal Muharram (est.)
+    "2026-08-25",               // Prophet Muhammad's Birthday (est.)
+    "2026-08-31",               // Merdeka Day
+    "2026-09-16",               // Malaysia Day
+    "2026-11-09",               // Deepavali (est.)
+    "2026-12-25"                // Christmas Day
+  ];
+  function dateStrOf(d) { return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()); }
+  function isWorkingDay(d) {
+    var wd = d.getDay();
+    return wd !== 0 && wd !== 6 && HOLIDAYS.indexOf(dateStrOf(d)) === -1;
+  }
+  function computeDueAt(createdMs) {
+    var d = new Date(createdMs);
+    var mins = d.getHours() * 60 + d.getMinutes();
+    if (isWorkingDay(d) && mins >= WORK_START_MIN && mins < WORK_END_MIN) {
+      return createdMs + 30 * 60 * 1000;
+    }
+    var due = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
+    while (due.getTime() <= createdMs || !isWorkingDay(due)) due.setDate(due.getDate() + 1);
+    return due.getTime();
+  }
+  window.__deadline = computeDueAt; // test hook
 
   /* ---------- theme (per-device preference) ---------- */
   var THEME_KEY = "team-checklist-theme";
@@ -642,6 +690,7 @@
       t.source = t.source && SOURCE_META[t.source] ? t.source : "";
       t.date = t.date || todayStr();
       t.order = Number(t.order) || 0;
+      t.dueAt = t.dueAt ? Number(t.dueAt) : null;
       return t;
     });
     d.routines = (d.routines || []).map(function (r) {
@@ -698,6 +747,26 @@
     return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
   }
   function doneDayOf(t) { return t.doneAt ? dateOfMs(t.doneAt) : t.date; }
+  /* Late = deadline passed before completion (or still not completed).
+     The penalty stays even after a late finish. */
+  function isLate(t) {
+    if (!t.dueAt) return false;
+    if (t.done) return !!t.doneAt && t.doneAt > t.dueAt;
+    return Date.now() > t.dueAt;
+  }
+  function penaltyPoints(staffId) {
+    return state.tasks.filter(function (t) { return t.assignee === staffId && isLate(t); }).length;
+  }
+  function fmtDue(t) {
+    var diff = t.dueAt - Date.now();
+    var when = fmtTime(t.dueAt);
+    var dueDay = dateOfMs(t.dueAt);
+    if (dueDay !== todayStr()) when = dayLabel(dueDay) + ", " + when;
+    if (diff <= 0) return { text: "⚠ Overdue — was due " + when, cls: " overdue" };
+    var mins = Math.ceil(diff / 60000);
+    var rem = mins >= 60 ? Math.floor(mins / 60) + "h " + (mins % 60) + "m" : mins + "m";
+    return { text: "⏳ " + rem + " left · due " + when, cls: mins <= 10 ? " overdue" : "" };
+  }
   /* A completed task stays on My Tasks only while BOTH its assigned day
      and its completion day are still current — tick a task from a past
      day and it goes straight to History; tick today's task and it stays
@@ -713,7 +782,7 @@
     state.tasks.forEach(function (t) {
       if (!t.done || isActiveTask(t)) return;
       if (staffId && t.assignee !== staffId) return;
-      items.push({ date: doneDayOf(t), title: t.title, source: t.source, doneAt: t.doneAt, assignee: t.assignee, routine: false });
+      items.push({ date: doneDayOf(t), title: t.title, source: t.source, doneAt: t.doneAt, assignee: t.assignee, routine: false, late: isLate(t) });
     });
     state.routineLog.forEach(function (l) {
       if (l.date >= today) return;
@@ -738,6 +807,7 @@
         if (showStaffName) meta.push(staffById(i.assignee).name);
         if (i.routine) meta.push("Routine");
         if (i.doneAt) meta.push("Done " + fmtTime(i.doneAt));
+        if (i.late) meta.push('<b class="late-tag">Late</b>');
         return (
           '<div class="task done win static">' +
             '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
@@ -913,8 +983,14 @@
   /* ---------- task rows ---------- */
   function taskRow(t, opts) {
     opts = opts || {};
-    var meta = [];
-    if (t.done && t.doneAt) meta.push("Done " + fmtTime(t.doneAt));
+    var metaHtml = "";
+    if (t.done && t.doneAt) {
+      metaHtml = '<span class="t-meta">Done ' + fmtTime(t.doneAt) +
+        (isLate(t) ? ' · <b class="late-tag">Late</b>' : "") + "</span>";
+    } else if (!t.done && t.dueAt) {
+      var due = fmtDue(t);
+      metaHtml = '<span class="t-meta' + due.cls + '">' + due.text + "</span>";
+    }
     var sm = t.source ? SOURCE_META[t.source] : null;
     return (
       '<div class="task' + (t.done ? " done" : "") + (opts.win && t.done ? " win" : "") +
@@ -923,7 +999,7 @@
         '<span class="t-body">' +
           '<span class="t-title">' + esc(t.title) + "</span>" +
           (sm ? '<span class="t-src">' + sm.icon + sm.label + "</span>" : "") +
-          (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
+          metaHtml +
         "</span>" +
         (opts.edit
           ? '<span class="edit" data-edit="' + esc(t.id) + '" role="button" aria-label="Edit task">' +
@@ -1336,11 +1412,13 @@
       var todayDone = todayList.filter(function (t) { return t.done; }).length;
       var routines = routinesFor(s.id);
       var rDone = routines.filter(routineDoneToday).length;
+      var pen = penaltyPoints(s.id);
       return (
         '<div class="stat-card">' +
           '<div class="stat-head">' +
             '<span class="avatar" style="width:38px;height:38px;font-size:15px;">' + s.name.charAt(0) + "</span>" +
             '<span class="s-name">' + s.name + "</span>" +
+            '<span class="pen-pill' + (pen ? " bad" : "") + '">' + pen + " pts</span>" +
             '<span class="s-pct">' + pct + "%</span>" +
           "</div>" +
           '<div class="stat-track"><div class="stat-fill" style="width:' + pct + '%"></div></div>' +
@@ -1414,7 +1492,8 @@
       });
       var task = {
         id: uid(), title: title, source: newSource,
-        assignee: sid, date: date, done: false, doneAt: null, order: maxOrder + 1
+        assignee: sid, date: date, done: false, doneAt: null, order: maxOrder + 1,
+        dueAt: computeDueAt(Date.now())
       };
       state.tasks.push(task);
       apiMutate("addTask", [task]);
@@ -1476,6 +1555,13 @@
   /* Auto refresh every 30 minutes, plus when the app comes back to the
      foreground after being away for over a minute. */
   setInterval(function () { refreshData(false); }, AUTO_REFRESH_MS);
+  /* Countdown ticker: repaint the task lists every 30s so deadlines,
+     overdue flags and penalty points stay current. */
+  setInterval(function () {
+    if (draggingNow || editingNow) return;
+    if (activeScreen === "staff" && staffTab === "tasks" && currentStaff) renderStaff(currentStaff);
+    else if (activeScreen === "boss") { renderBossLists(); renderStats(); }
+  }, 30000);
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden && Date.now() - lastLoad > 60000) refreshData(false);
   });
