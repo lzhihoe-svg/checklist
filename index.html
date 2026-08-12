@@ -329,32 +329,41 @@
   }
   .note { font-size: 13px; color: var(--muted); margin: 10px 2px 0; }
 
-  /* ---------- Desktop (phones & tablets keep the layout above) ---------- */
+  /* ---------- Desktop (phones & tablets keep the layout above) ----------
+     One rule: every screen's content lives in the SAME centered
+     container, 74% of the viewport wide. Everything aligns to its
+     edges; multi-column grids fill it. */
   @media (min-width: 920px) {
-    #app { max-width: 1160px; padding-left: 32px; padding-right: 32px; }
+    #app { max-width: none; width: 74vw; }
 
-    /* keep reading-width elements centered */
-    .topbar, .tabs, .progress-card, #staff-groups, #staff-tip, .sync-note,
-    #screen-home .hero, .role-grid,
-    #tab-tasks .add-card, #tab-tasks .drag-tip, #tab-routine .add-card, #tab-routine .note,
-    #staff-delegate .add-card, #staff-delegate .drag-tip,
-    #boss-history, #tab-history .note, #tab-stats .note, #tab-stats .section-label,
-    #history-list, #tab-pins { max-width: 720px; margin-left: auto; margin-right: auto; }
-    .home-theme { right: 32px; }
+    /* home: logo + title centered, roles in a 2x2 grid */
+    .hero { text-align: center; padding: 56px 4px 32px; }
+    .hero .logo { margin-left: auto; margin-right: auto; width: 104px; }
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .home-theme { top: 24px; }
 
-    .role-grid { display: grid; grid-template-columns: 1fr 1fr; }
-
-    /* three staff boards side by side */
+    /* staff boards: three columns, one per person */
     #boss-lists, #del-lists, #boss-routines {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 18px; align-items: start;
     }
+    /* day-grouped lists flow into columns of the same container */
+    #staff-groups, #boss-history {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 0 18px; align-items: start;
+    }
     .staff-col { min-width: 0; }
 
-    /* stats in columns, daily record two-up */
+    /* stats in columns, daily record in a grid */
     #stats-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
     #stats-list .stat-card { margin-bottom: 0; }
-    #history-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+    #history-list {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 12px; align-items: start;
+    }
     #history-list .day-card { margin-bottom: 0; }
+
+    /* PIN management stays a tidy single column, same left edge */
+    #tab-pins { max-width: 560px; margin-left: 0; }
 
     /* mouse feedback */
     .task:not(.static):hover { border-color: var(--lime); }
@@ -872,9 +881,10 @@
         );
       }).join("");
       return (
+        '<div class="staff-col">' +
         '<div class="section-label">' + dayLabel(date) +
           ' <span class="count">· ' + byDate[date].length + " completed</span></div>" +
-        '<div class="task-list">' + rows + "</div>"
+        '<div class="task-list">' + rows + "</div></div>"
       );
     }).join("");
     return items.length;
@@ -1346,23 +1356,24 @@
 
     var html = "";
     if (onRoutine) {
-      html = routines.length
+      html = '<div class="staff-col">' + (routines.length
         ? '<div class="section-label">Daily routine <span class="count">· resets every morning</span></div>' +
           '<div class="task-list" data-kind="routine">' +
             routines.map(function (rt) { return taskRow(routineView(rt), { handle: true, win: true }); }).join("") +
           "</div>"
-        : '<div class="section-label">Daily routine</div><div class="empty">No daily routine yet. The boss can add one.</div>';
+        : '<div class="section-label">Daily routine</div><div class="empty">No daily routine yet. The boss can add one.</div>') + "</div>";
     } else if (!list.length) {
-      html = '<div class="section-label">My tasks</div><div class="empty">No tasks yet. Ask the boss to assign some!</div>';
+      html = '<div class="staff-col"><div class="section-label">My tasks</div><div class="empty">No tasks yet. Ask the boss to assign some!</div></div>';
     } else {
       html = byDateGroups(list).map(function (g) {
         var gDone = g.tasks.filter(function (t) { return t.done; }).length;
         return (
+          '<div class="staff-col">' +
           '<div class="section-label">' + dayLabel(g.date) +
             ' <span class="count">· ' + gDone + "/" + g.tasks.length + "</span></div>" +
           '<div class="task-list" data-group="' + g.date + '">' +
             g.tasks.map(function (t) { return taskRow(t, { handle: true, win: true }); }).join("") +
-          "</div>"
+          "</div></div>"
         );
       }).join("");
     }
