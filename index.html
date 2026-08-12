@@ -401,6 +401,7 @@
       <button class="tab active" data-stab="tasks">My Tasks</button>
       <button class="tab" data-stab="routine">Routine</button>
       <button class="tab" data-stab="history">History</button>
+      <button class="tab" data-stab="delegate" id="tab-btn-delegate" style="display:none">Delegate</button>
     </div>
     <div class="progress-card">
       <div class="p-row">
@@ -410,7 +411,22 @@
       <div class="progress-track"><div class="progress-fill" id="staff-bar" style="width:0%"></div></div>
     </div>
     <div id="staff-groups"></div>
-    <div class="drag-tip">Hold the ☰ handle to drag a task up or down — arrange your day your way.</div>
+    <div class="drag-tip" id="staff-tip">Hold the ☰ handle to drag a task up or down — arrange your day your way.</div>
+
+    <!-- Delegation board (manager profile only) -->
+    <div id="staff-delegate" style="display:none">
+      <div class="add-card">
+        <div class="eyebrow" style="margin-bottom:10px;">Delegate a task</div>
+        <input type="text" id="del-task-title" placeholder="Task — e.g. Arrange courier pickup" maxlength="120" />
+        <div class="mini-label">Source</div>
+        <div class="chips tight" id="del-source-chips"></div>
+        <div class="mini-label">Assign to</div>
+        <div class="chips" id="del-assign-chips"></div>
+        <button class="btn-primary" id="del-add-btn">Add to checklist</button>
+      </div>
+      <div id="del-lists"></div>
+      <div class="drag-tip">Hold the ☰ handle to reorder or move a task to someone else. Tap ✎ to edit.</div>
+    </div>
   </section>
 
   <!-- BOSS PANEL -->
@@ -1211,7 +1227,8 @@
     }
     commitOrder(listEl, moved ? "Moved to " + staffById(newStaff).name : "Order saved");
     if (newStaff) {
-      if (kind === "routine") renderBossRoutines(); else renderBossLists();
+      if (kind === "routine") renderBossRoutines();
+      else { renderBossLists(); renderDelegateLists(); }
       renderStats();
     }
   }
@@ -1246,8 +1263,30 @@
     var doneRoutines = routines.filter(routineDoneToday).length;
     var onRoutine = staffTab === "routine";
 
+    /* The manager (Bob) gets an extra Delegate tab */
+    var delegateAllowed = id === "sales";
+    document.getElementById("tab-btn-delegate").style.display = delegateAllowed ? "" : "none";
+    if (staffTab === "delegate" && !delegateAllowed) { staffTab = "tasks"; syncStaffTabs(); }
+    var onDelegate = staffTab === "delegate";
+    document.getElementById("staff-delegate").style.display = onDelegate ? "" : "none";
+    document.getElementById("staff-groups").style.display = onDelegate ? "none" : "";
+    document.getElementById("staff-tip").style.display = onDelegate ? "none" : "";
+
     document.getElementById("staff-title").textContent = r.name + "'s Checklist";
     document.getElementById("staff-sub").textContent = r.desc;
+
+    if (onDelegate) {
+      var all = state.tasks.filter(isActiveTask);
+      var allDone = all.filter(function (t) { return t.done; }).length;
+      var tPct = all.length ? Math.round((allDone / all.length) * 100) : 0;
+      document.getElementById("staff-pct").textContent = tPct + "%";
+      document.getElementById("staff-count").textContent = allDone + " of " + all.length + " team tasks done";
+      document.getElementById("staff-bar").style.width = tPct + "%";
+      renderChipPicker("del-assign-chips", delAssignTo);
+      renderDelSourceChips();
+      renderDelegateLists();
+      return;
+    }
 
     var el = document.getElementById("staff-groups");
     if (staffTab === "history") {
@@ -1294,23 +1333,30 @@
     });
   }
 
-  /* ---------- boss panel ---------- */
+  /* ---------- boss panel & delegation ---------- */
   var assignTo = ["admin"];
   var assignRoutineTo = ["admin"];
   var newSource = "";
+  var delAssignTo = ["sales"];
+  var delSource = "";
 
-  function renderSourceChips() {
-    var el = document.getElementById("source-chips");
+  function paintSourcePicker(elId, current, onPick) {
+    var el = document.getElementById(elId);
     el.innerHTML = SOURCES.map(function (s) {
-      return '<button class="chip' + (newSource === s.id ? " active" : "") + '" data-src="' + s.id + '">' + s.icon + s.label + "</button>";
+      return '<button class="chip' + (current === s.id ? " active" : "") + '" data-src="' + s.id + '">' + s.icon + s.label + "</button>";
     }).join("");
     el.querySelectorAll("[data-src]").forEach(function (c) {
       c.addEventListener("click", function () {
         var id = c.getAttribute("data-src");
-        newSource = newSource === id ? "" : id;
-        renderSourceChips();
+        onPick(current === id ? "" : id);
       });
     });
+  }
+  function renderSourceChips() {
+    paintSourcePicker("source-chips", newSource, function (v) { newSource = v; renderSourceChips(); });
+  }
+  function renderDelSourceChips() {
+    paintSourcePicker("del-source-chips", delSource, function (v) { delSource = v; renderDelSourceChips(); });
   }
   function renderBoss() {
     renderSourceChips();
@@ -1339,8 +1385,10 @@
       });
     });
   }
-  function renderBossLists() {
-    var el = document.getElementById("boss-lists");
+  /* One task board per container: used by the boss Tasks tab and the
+     manager's Delegate tab. */
+  function renderTaskBoard(containerId, afterChange) {
+    var el = document.getElementById(containerId);
     var html = "";
     STAFF.forEach(function (s) {
       var list = tasksFor(s.id).filter(isActiveTask).sort(function (a, b) {
@@ -1357,9 +1405,15 @@
     el.innerHTML = html;
     var lists = Array.prototype.slice.call(el.querySelectorAll("[data-staff-list]"));
     lists.forEach(function (c) {
-      bindTaskRows(c, function () { renderBossLists(); renderStats(); });
+      bindTaskRows(c, afterChange);
       enableDrag(c, lists);
     });
+  }
+  function renderBossLists() {
+    renderTaskBoard("boss-lists", function () { renderBossLists(); renderStats(); });
+  }
+  function renderDelegateLists() {
+    renderTaskBoard("del-lists", function () { renderDelegateLists(); });
   }
   function renderBossRoutines() {
     var el = document.getElementById("boss-routines");
@@ -1478,20 +1532,16 @@
     }).join("");
   }
 
-  function addTask() {
-    var titleInput = document.getElementById("new-task-title");
-    var title = titleInput.value.trim();
-    if (!title) { toast("Type a task first"); titleInput.focus(); return; }
-    if (!assignTo.length) { toast("Pick at least one staff"); return; }
+  function createTasks(title, source, assignees) {
     var date = todayStr();
     var names = [];
-    assignTo.forEach(function (sid) {
+    assignees.forEach(function (sid) {
       var maxOrder = 0;
       state.tasks.forEach(function (t) {
         if (t.assignee === sid && t.date === date && t.order > maxOrder) maxOrder = t.order;
       });
       var task = {
-        id: uid(), title: title, source: newSource,
+        id: uid(), title: title, source: source,
         assignee: sid, date: date, done: false, doneAt: null, order: maxOrder + 1,
         dueAt: computeDueAt(Date.now())
       };
@@ -1499,11 +1549,31 @@
       apiMutate("addTask", [task]);
       names.push(staffById(sid).name);
     });
+    return names;
+  }
+  function addTask() {
+    var titleInput = document.getElementById("new-task-title");
+    var title = titleInput.value.trim();
+    if (!title) { toast("Type a task first"); titleInput.focus(); return; }
+    if (!assignTo.length) { toast("Pick at least one staff"); return; }
+    var names = createTasks(title, newSource, assignTo);
     titleInput.value = "";
     newSource = "";
     renderSourceChips();
     renderBossLists();
     renderStats();
+    toast("Assigned to " + names.join(" & "));
+  }
+  function addDelegateTask() {
+    var input = document.getElementById("del-task-title");
+    var title = input.value.trim();
+    if (!title) { toast("Type a task first"); input.focus(); return; }
+    if (!delAssignTo.length) { toast("Pick at least one person"); return; }
+    var names = createTasks(title, delSource, delAssignTo);
+    input.value = "";
+    delSource = "";
+    renderDelSourceChips();
+    renderDelegateLists();
     toast("Assigned to " + names.join(" & "));
   }
   function savePins() {
@@ -1559,7 +1629,7 @@
      overdue flags and penalty points stay current. */
   setInterval(function () {
     if (draggingNow || editingNow) return;
-    if (activeScreen === "staff" && staffTab === "tasks" && currentStaff) renderStaff(currentStaff);
+    if (activeScreen === "staff" && (staffTab === "tasks" || staffTab === "delegate") && currentStaff) renderStaff(currentStaff);
     else if (activeScreen === "boss") { renderBossLists(); renderStats(); }
   }, 30000);
   document.addEventListener("visibilitychange", function () {
@@ -1597,6 +1667,10 @@
   document.getElementById("add-routine-btn").addEventListener("click", addRoutine);
   document.getElementById("new-routine-title").addEventListener("keydown", function (e) {
     if (e.key === "Enter") addRoutine();
+  });
+  document.getElementById("del-add-btn").addEventListener("click", addDelegateTask);
+  document.getElementById("del-task-title").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") addDelegateTask();
   });
   document.getElementById("save-pins-btn").addEventListener("click", savePins);
 
