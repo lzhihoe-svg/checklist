@@ -7,7 +7,7 @@
  */
 
 var SS_PROP = "SPREADSHEET_ID";
-var TASK_HEADERS = ["id", "title", "source", "assignee", "date", "done", "doneAt", "order", "dueAt"];
+var TASK_HEADERS = ["id", "title", "source", "assignee", "date", "done", "doneAt", "order", "dueAt", "customer"];
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("index")
@@ -92,7 +92,8 @@ function getData() {
       done: r[5] === true || String(r[5]).toUpperCase() === "TRUE",
       doneAt: r[6] ? Number(r[6]) : null,
       order: Number(r[7]) || 0,
-      dueAt: r[8] ? Number(r[8]) : null
+      dueAt: r[8] ? Number(r[8]) : null,
+      customer: String(r[9] || "")
     });
   }
   var rVals = ss.getSheetByName("Routines").getDataRange().getValues();
@@ -159,7 +160,8 @@ function addTask(task) {
       false,
       "",
       Number(task.order) || 0,
-      task.dueAt ? Number(task.dueAt) : ""
+      task.dueAt ? Number(task.dueAt) : "",
+      String(task.customer || "")
     ]);
     return true;
   });
@@ -191,6 +193,16 @@ function setSource(id, source) {
     var row = findTaskRow_(sheet, id);
     if (row < 0) return false;
     sheet.getRange(row, 3).setValue(String(source || ""));
+    return true;
+  });
+}
+
+function setCustomer(id, customer) {
+  return withLock_(function () {
+    var sheet = getSpreadsheet_().getSheetByName("Tasks");
+    var row = findTaskRow_(sheet, id);
+    if (row < 0) return false;
+    sheet.getRange(row, 10).setValue(String(customer || ""));
     return true;
   });
 }

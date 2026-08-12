@@ -199,6 +199,12 @@
   }
   .tickbox svg { width: 15px; height: 15px; stroke: #fff; opacity: 0; transform: scale(0.4); transition: all 0.15s ease; }
   .task .t-body { flex: 1; min-width: 0; }
+  .task .t-cust {
+    display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--lime-ink); margin-bottom: 1px;
+  }
+  .task.done .t-cust { color: var(--done); }
+  .task.done.win .t-cust { color: var(--lime-ink); opacity: 0.8; }
   .task .t-title { display: block; font-weight: 600; font-size: 15px; transition: color 0.15s ease; }
   .task .t-src {
     display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap;
@@ -240,6 +246,7 @@
     width: 100%; border: 1.5px solid var(--lime); background: var(--bg);
     border-radius: 8px; padding: 7px 10px; font-size: 15px; font-weight: 600;
   }
+  .task input.t-edit + input.t-edit { margin-top: 6px; font-size: 13px; }
   .edit-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .edit-tools .chip { padding: 6px 10px; font-size: 12px; }
   .edit-tools .chip svg { width: 13px; height: 13px; }
@@ -464,6 +471,8 @@
       <div class="add-card">
         <div class="eyebrow" style="margin-bottom:10px;">Delegate a task</div>
         <input type="text" id="del-task-title" placeholder="Task — e.g. Arrange courier pickup" maxlength="120" />
+        <div class="mini-label">Customer</div>
+        <input type="text" id="del-task-customer" placeholder="Customer — e.g. TUS Stitch (optional)" maxlength="80" />
         <div class="mini-label">Source</div>
         <div class="chips tight" id="del-source-chips"></div>
         <div class="mini-label">Assign to</div>
@@ -504,6 +513,8 @@
       <div class="add-card">
         <div class="eyebrow" style="margin-bottom:10px;">New task</div>
         <input type="text" id="new-task-title" placeholder="Task — e.g. Send revised quotation" maxlength="120" />
+        <div class="mini-label">Customer</div>
+        <input type="text" id="new-task-customer" placeholder="Customer — e.g. TUS Stitch (optional)" maxlength="80" />
         <div class="mini-label">Source</div>
         <div class="chips tight" id="source-chips"></div>
         <div class="mini-label">Assign to</div>
@@ -778,6 +789,7 @@
     d.tasks = (d.tasks || []).map(function (t) {
       t.id = String(t.id);
       t.source = srcList(t).join(",");
+      t.customer = t.customer || "";
       t.date = t.date || todayStr();
       t.order = Number(t.order) || 0;
       t.dueAt = t.dueAt ? Number(t.dueAt) : null;
@@ -872,7 +884,7 @@
     state.tasks.forEach(function (t) {
       if (!t.done || isActiveTask(t)) return;
       if (staffId && t.assignee !== staffId) return;
-      items.push({ date: doneDayOf(t), title: t.title, source: t.source, doneAt: t.doneAt, assignee: t.assignee, routine: false, late: isLate(t) });
+      items.push({ date: doneDayOf(t), title: t.title, customer: t.customer, source: t.source, doneAt: t.doneAt, assignee: t.assignee, routine: false, late: isLate(t) });
     });
     state.routineLog.forEach(function (l) {
       if (l.date >= today) return;
@@ -901,6 +913,7 @@
           '<div class="task done win static">' +
             '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
             '<span class="t-body">' +
+              (i.customer ? '<span class="t-cust">' + esc(i.customer) + "</span>" : "") +
               '<span class="t-title">' + esc(i.title) + "</span>" +
               srcHtml(i) +
               (meta.length ? '<span class="t-meta">' + meta.join(" · ") + "</span>" : "") +
@@ -1086,6 +1099,7 @@
         '" role="button" tabindex="0" data-id="' + esc(t.id) + '" aria-pressed="' + t.done + '">' +
         '<span class="tickbox"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
         '<span class="t-body">' +
+          (t.customer ? '<span class="t-cust">' + esc(t.customer) + "</span>" : "") +
           '<span class="t-title">' + esc(t.title) + "</span>" +
           srcHtml(t) +
           metaHtml +
@@ -1147,12 +1161,18 @@
     }).join("");
     body.innerHTML =
       '<input class="t-edit" type="text" maxlength="120" value="' + esc(t.title) + '" />' +
+      (kind === "routine" ? "" :
+        '<input class="t-edit t-edit-cust" type="text" maxlength="80" placeholder="Customer (optional)" value="' + esc(t.customer || "") + '" />') +
       '<span class="edit-tools">' + chipsHtml + '<button class="chip save-chip" data-save="1">Save</button></span>';
-    var input = body.querySelector("input");
-    input.addEventListener("click", function (e) { e.stopPropagation(); });
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") commit();
-      if (e.key === "Escape") { editingNow = false; rerender(); }
+    var input = body.querySelector("input.t-edit");
+    var custInput = body.querySelector("input.t-edit-cust");
+    [input, custInput].forEach(function (inp) {
+      if (!inp) return;
+      inp.addEventListener("click", function (e) { e.stopPropagation(); });
+      inp.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") { editingNow = false; rerender(); }
+      });
     });
     body.querySelectorAll("[data-esrc]").forEach(function (c) {
       c.addEventListener("click", function (e) {
@@ -1183,6 +1203,14 @@
         t.source = newSrc;
         apiMutate("setSource", [t.id, newSrc]);
         changed = true;
+      }
+      if (kind !== "routine" && custInput) {
+        var cv = custInput.value.trim();
+        if (cv !== (t.customer || "")) {
+          t.customer = cv;
+          apiMutate("setCustomer", [t.id, cv]);
+          changed = true;
+        }
       }
       if (changed) toast(kind === "routine" ? "Routine updated" : "Task updated");
       rerender();
@@ -1613,7 +1641,7 @@
     }).join("");
   }
 
-  function createTasks(title, source, assignees) {
+  function createTasks(title, customer, source, assignees) {
     var date = todayStr();
     var names = [];
     assignees.forEach(function (sid) {
@@ -1622,7 +1650,7 @@
         if (t.assignee === sid && t.date === date && t.order > maxOrder) maxOrder = t.order;
       });
       var task = {
-        id: uid(), title: title, source: source,
+        id: uid(), title: title, customer: customer, source: source,
         assignee: sid, date: date, done: false, doneAt: null, order: maxOrder + 1,
         dueAt: computeDueAt(Date.now())
       };
@@ -1634,11 +1662,13 @@
   }
   function addTask() {
     var titleInput = document.getElementById("new-task-title");
+    var custInput = document.getElementById("new-task-customer");
     var title = titleInput.value.trim();
     if (!title) { toast("Type a task first"); titleInput.focus(); return; }
     if (!assignTo.length) { toast("Pick at least one staff"); return; }
-    var names = createTasks(title, newSource.join(","), assignTo);
+    var names = createTasks(title, custInput.value.trim(), newSource.join(","), assignTo);
     titleInput.value = "";
+    custInput.value = "";
     newSource = [];
     renderSourceChips();
     renderBossLists();
@@ -1647,11 +1677,13 @@
   }
   function addDelegateTask() {
     var input = document.getElementById("del-task-title");
+    var custInput = document.getElementById("del-task-customer");
     var title = input.value.trim();
     if (!title) { toast("Type a task first"); input.focus(); return; }
     if (!delAssignTo.length) { toast("Pick at least one person"); return; }
-    var names = createTasks(title, delSource.join(","), delAssignTo);
+    var names = createTasks(title, custInput.value.trim(), delSource.join(","), delAssignTo);
     input.value = "";
+    custInput.value = "";
     delSource = [];
     renderDelSourceChips();
     renderDelegateLists();
