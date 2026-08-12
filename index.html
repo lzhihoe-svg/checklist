@@ -201,10 +201,10 @@
   .task .t-body { flex: 1; min-width: 0; }
   .task .t-cust {
     display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.07em;
-    text-transform: uppercase; color: var(--lime-ink); margin-bottom: 1px;
+    text-transform: uppercase; color: var(--danger); margin-bottom: 1px;
   }
   .task.done .t-cust { color: var(--done); }
-  .task.done.win .t-cust { color: var(--lime-ink); opacity: 0.8; }
+  .task.done.win .t-cust { color: var(--danger); opacity: 0.65; }
   .task .t-title { display: block; font-weight: 600; font-size: 15px; transition: color 0.15s ease; }
   .task .t-src {
     display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap;
@@ -220,6 +220,8 @@
   .task.done .t-title { color: var(--done); text-decoration: line-through; text-decoration-thickness: 2px; }
   .task.done .t-meta { color: var(--done); }
   .t-meta.overdue { color: var(--danger); font-weight: 700; }
+  .t-meta b.due-part { font-weight: 600; }
+  .t-meta b.due-part.overdue { color: var(--danger); font-weight: 700; }
   .late-tag { color: var(--danger); font-weight: 800; }
   .pen-pill {
     font-size: 11px; font-weight: 800; border-radius: 99px; padding: 3px 9px;
@@ -793,6 +795,8 @@
       t.date = t.date || todayStr();
       t.order = Number(t.order) || 0;
       t.dueAt = t.dueAt ? Number(t.dueAt) : null;
+      t.createdAt = t.createdAt ? Number(t.createdAt) : null;
+      t.editedAt = t.editedAt ? Number(t.editedAt) : null;
       return t;
     });
     d.routines = (d.routines || []).map(function (r) {
@@ -858,6 +862,12 @@
   }
   function penaltyPoints(staffId) {
     return state.tasks.filter(function (t) { return t.assignee === staffId && isLate(t); }).length;
+  }
+  function fmtWhen(ms) {
+    var day = dateOfMs(ms);
+    var s = fmtTime(ms);
+    if (day !== todayStr()) s = dayLabel(day) + ", " + s;
+    return s;
   }
   function fmtDue(t) {
     var diff = t.dueAt - Date.now();
@@ -1090,9 +1100,15 @@
     if (t.done && t.doneAt) {
       metaHtml = '<span class="t-meta">Done ' + fmtTime(t.doneAt) +
         (isLate(t) ? ' · <b class="late-tag">Late</b>' : "") + "</span>";
-    } else if (!t.done && t.dueAt) {
-      var due = fmtDue(t);
-      metaHtml = '<span class="t-meta' + due.cls + '">' + due.text + "</span>";
+    } else if (!t.done) {
+      var parts = [];
+      if (t.editedAt) parts.push("Edited " + fmtWhen(t.editedAt));
+      else if (t.createdAt) parts.push("Added " + fmtWhen(t.createdAt));
+      if (t.dueAt) {
+        var due = fmtDue(t);
+        parts.push('<b class="due-part' + due.cls + '">' + due.text + "</b>");
+      }
+      if (parts.length) metaHtml = '<span class="t-meta">' + parts.join(" · ") + "</span>";
     }
     return (
       '<div class="task' + (t.done ? " done" : "") + (opts.win && t.done ? " win" : "") +
@@ -1191,26 +1207,27 @@
     });
     function commit() {
       editingNow = false;
+      var ts = Date.now();
       var v = input.value.trim();
-      var changed = false;
-      if (v && v !== t.title) {
-        t.title = v;
-        apiMutate(kind === "routine" ? "setRoutineTitle" : "setTitle", [t.id, v]);
-        changed = true;
-      }
       var newSrc = editSource.join(",");
-      if (kind !== "routine" && newSrc !== srcList(t).join(",")) {
-        t.source = newSrc;
-        apiMutate("setSource", [t.id, newSrc]);
-        changed = true;
+      var cv = custInput ? custInput.value.trim() : "";
+      var titleChanged = !!v && v !== t.title;
+      var srcChanged = kind !== "routine" && newSrc !== srcList(t).join(",");
+      var custChanged = kind !== "routine" && !!custInput && cv !== (t.customer || "");
+      var changed = titleChanged || srcChanged || custChanged;
+      /* stamp editedAt BEFORE the mutations so it persists with them */
+      if (changed && kind !== "routine") t.editedAt = ts;
+      if (titleChanged) {
+        t.title = v;
+        apiMutate(kind === "routine" ? "setRoutineTitle" : "setTitle", [t.id, v, ts]);
       }
-      if (kind !== "routine" && custInput) {
-        var cv = custInput.value.trim();
-        if (cv !== (t.customer || "")) {
-          t.customer = cv;
-          apiMutate("setCustomer", [t.id, cv]);
-          changed = true;
-        }
+      if (srcChanged) {
+        t.source = newSrc;
+        apiMutate("setSource", [t.id, newSrc, ts]);
+      }
+      if (custChanged) {
+        t.customer = cv;
+        apiMutate("setCustomer", [t.id, cv, ts]);
       }
       if (changed) toast(kind === "routine" ? "Routine updated" : "Task updated");
       rerender();
@@ -1652,7 +1669,7 @@
       var task = {
         id: uid(), title: title, customer: customer, source: source,
         assignee: sid, date: date, done: false, doneAt: null, order: maxOrder + 1,
-        dueAt: computeDueAt(Date.now())
+        dueAt: computeDueAt(Date.now()), createdAt: Date.now(), editedAt: null
       };
       state.tasks.push(task);
       apiMutate("addTask", [task]);

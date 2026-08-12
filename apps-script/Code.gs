@@ -7,7 +7,7 @@
  */
 
 var SS_PROP = "SPREADSHEET_ID";
-var TASK_HEADERS = ["id", "title", "source", "assignee", "date", "done", "doneAt", "order", "dueAt", "customer"];
+var TASK_HEADERS = ["id", "title", "source", "assignee", "date", "done", "doneAt", "order", "dueAt", "customer", "createdAt", "editedAt"];
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("index")
@@ -93,7 +93,9 @@ function getData() {
       doneAt: r[6] ? Number(r[6]) : null,
       order: Number(r[7]) || 0,
       dueAt: r[8] ? Number(r[8]) : null,
-      customer: String(r[9] || "")
+      customer: String(r[9] || ""),
+      createdAt: r[10] ? Number(r[10]) : null,
+      editedAt: r[11] ? Number(r[11]) : null
     });
   }
   var rVals = ss.getSheetByName("Routines").getDataRange().getValues();
@@ -161,7 +163,9 @@ function addTask(task) {
       "",
       Number(task.order) || 0,
       task.dueAt ? Number(task.dueAt) : "",
-      String(task.customer || "")
+      String(task.customer || ""),
+      task.createdAt ? Number(task.createdAt) : "",
+      ""
     ]);
     return true;
   });
@@ -177,32 +181,39 @@ function setDone(id, done, doneAt) {
   });
 }
 
-function setTitle(id, title) {
+function markEdited_(sheet, row, editedAt) {
+  if (editedAt) sheet.getRange(row, 12).setValue(Number(editedAt));
+}
+
+function setTitle(id, title, editedAt) {
   return withLock_(function () {
     var sheet = getSpreadsheet_().getSheetByName("Tasks");
     var row = findTaskRow_(sheet, id);
     if (row < 0) return false;
     sheet.getRange(row, 2).setValue(String(title));
+    markEdited_(sheet, row, editedAt);
     return true;
   });
 }
 
-function setSource(id, source) {
+function setSource(id, source, editedAt) {
   return withLock_(function () {
     var sheet = getSpreadsheet_().getSheetByName("Tasks");
     var row = findTaskRow_(sheet, id);
     if (row < 0) return false;
     sheet.getRange(row, 3).setValue(String(source || ""));
+    markEdited_(sheet, row, editedAt);
     return true;
   });
 }
 
-function setCustomer(id, customer) {
+function setCustomer(id, customer, editedAt) {
   return withLock_(function () {
     var sheet = getSpreadsheet_().getSheetByName("Tasks");
     var row = findTaskRow_(sheet, id);
     if (row < 0) return false;
     sheet.getRange(row, 10).setValue(String(customer || ""));
+    markEdited_(sheet, row, editedAt);
     return true;
   });
 }
