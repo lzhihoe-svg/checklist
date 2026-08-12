@@ -329,6 +329,42 @@
   }
   .note { font-size: 13px; color: var(--muted); margin: 10px 2px 0; }
 
+  /* ---------- Desktop (phones & tablets keep the layout above) ---------- */
+  @media (min-width: 920px) {
+    #app { max-width: 1160px; padding-left: 32px; padding-right: 32px; }
+
+    /* keep reading-width elements centered */
+    .topbar, .tabs, .progress-card, #staff-groups, #staff-tip, .sync-note,
+    #screen-home .hero, .role-grid,
+    #tab-tasks .add-card, #tab-tasks .drag-tip, #tab-routine .add-card, #tab-routine .note,
+    #staff-delegate .add-card, #staff-delegate .drag-tip,
+    #boss-history, #tab-history .note, #tab-stats .note, #tab-stats .section-label,
+    #history-list, #tab-pins { max-width: 720px; margin-left: auto; margin-right: auto; }
+    .home-theme { right: 32px; }
+
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; }
+
+    /* three staff boards side by side */
+    #boss-lists, #del-lists, #boss-routines {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 18px; align-items: start;
+    }
+    .staff-col { min-width: 0; }
+
+    /* stats in columns, daily record two-up */
+    #stats-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
+    #stats-list .stat-card { margin-bottom: 0; }
+    #history-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+    #history-list .day-card { margin-bottom: 0; }
+
+    /* mouse feedback */
+    .task:not(.static):hover { border-color: var(--lime); }
+    .role-card:hover, .icon-btn:hover, .key:hover { border-color: var(--lime); }
+    .chip:hover, .tab:hover { color: var(--ink); }
+    .btn-primary:hover { filter: brightness(1.06); }
+    .task .del:hover { color: var(--danger); }
+    .task .edit:hover { color: var(--lime-ink); }
+  }
+
   .toast {
     position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(80px);
     background: var(--ink); color: var(--bg); font-weight: 700; font-size: 14px;
@@ -1163,19 +1199,23 @@
     draggingNow = true;
     row.classList.add("dragging");
     try { handle.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+    var lastX = e.clientX;
     var lastY = e.clientY;
 
-    function pickList(y) {
+    /* nearest list in 2D, so side-by-side desktop columns work too */
+    function pickList(x, y) {
       var best = listEl, bestDist = Infinity;
       allLists.forEach(function (l) {
         var r = l.getBoundingClientRect();
-        var dist = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+        var dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+        var dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+        var dist = dx + dy;
         if (dist < bestDist) { bestDist = dist; best = l; }
       });
       return best;
     }
-    function place(y) {
-      var target = pickList(y);
+    function place(x, y) {
+      var target = pickList(x, y);
       var rows = Array.prototype.slice.call(target.querySelectorAll(".task"));
       var next = null;
       for (var i = 0; i < rows.length; i++) {
@@ -1189,13 +1229,13 @@
         target.appendChild(row);
       }
     }
-    function onMove(ev) { lastY = ev.clientY; place(lastY); }
+    function onMove(ev) { lastX = ev.clientX; lastY = ev.clientY; place(lastX, lastY); }
 
     /* auto-scroll when dragging near the top/bottom of a long list */
     var raf = requestAnimationFrame(function loop() {
       if (!draggingNow) return;
-      if (lastY < 110) { window.scrollBy(0, -10); place(lastY); }
-      else if (lastY > window.innerHeight - 110) { window.scrollBy(0, 10); place(lastY); }
+      if (lastY < 110) { window.scrollBy(0, -10); place(lastX, lastY); }
+      else if (lastY > window.innerHeight - 110) { window.scrollBy(0, 10); place(lastX, lastY); }
       raf = requestAnimationFrame(loop);
     });
 
@@ -1395,12 +1435,13 @@
         return a.date < b.date ? -1 : a.date > b.date ? 1 : a.order - b.order;
       });
       var done = list.filter(function (t) { return t.done; }).length;
+      html += '<div class="staff-col">';
       html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done</div>";
       html += '<div class="task-list" data-staff-list="' + s.id + '">';
       html += list.length
         ? list.map(function (t) { return taskRow(t, { del: true, edit: true, handle: true }); }).join("")
         : '<div class="empty">Nothing assigned to ' + s.name + " yet.</div>";
-      html += "</div>";
+      html += "</div></div>";
     });
     el.innerHTML = html;
     var lists = Array.prototype.slice.call(el.querySelectorAll("[data-staff-list]"));
@@ -1421,12 +1462,13 @@
     STAFF.forEach(function (s) {
       var list = routinesFor(s.id);
       var done = list.filter(routineDoneToday).length;
+      html += '<div class="staff-col">';
       html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done today</div>";
       html += '<div class="task-list" data-kind="routine" data-staff-list="' + s.id + '">';
       html += list.length
         ? list.map(function (r) { return taskRow(routineView(r), { del: true, edit: true, handle: true }); }).join("")
         : '<div class="empty">No daily routine for ' + s.name + " yet.</div>";
-      html += "</div>";
+      html += "</div></div>";
     });
     el.innerHTML = html;
     var lists = Array.prototype.slice.call(el.querySelectorAll("[data-staff-list]"));
