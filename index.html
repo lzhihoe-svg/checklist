@@ -967,7 +967,11 @@
     return Object.keys(map).sort().map(function (date) {
       return {
         date: date,
-        tasks: map[date].sort(function (a, b) { return a.order - b.order || (a.id > b.id ? 1 : -1); })
+        /* pending on top, completed sink to the bottom */
+        tasks: map[date].sort(function (a, b) {
+          if (a.done !== b.done) return a.done ? 1 : -1;
+          return a.order - b.order || (a.id > b.id ? 1 : -1);
+        })
       };
     });
   }
@@ -1516,6 +1520,7 @@
     var html = "";
     STAFF.forEach(function (s) {
       var list = tasksFor(s.id).filter(isActiveTask).sort(function (a, b) {
+        if (a.done !== b.done) return a.done ? 1 : -1;
         return a.date < b.date ? -1 : a.date > b.date ? 1 : a.order - b.order;
       });
       var done = list.filter(function (t) { return t.done; }).length;
