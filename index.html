@@ -188,10 +188,6 @@
     user-select: none; -webkit-user-select: none; cursor: pointer;
   }
   .task:active { transform: scale(0.985); }
-  .task.dragging {
-    border-color: var(--lime); box-shadow: 0 8px 24px rgba(35, 42, 28, 0.22);
-    transform: scale(1.02); position: relative; z-index: 5;
-  }
   .tickbox {
     width: 26px; height: 26px; border-radius: 9px; flex: none;
     border: 2px solid var(--lime); display: grid; place-items: center;
@@ -233,15 +229,20 @@
   .task.done.win .tickbox { background: var(--lime); border-color: var(--lime); }
   .task.done.win .t-title { color: var(--lime-ink); }
   .task.done.win .t-meta { color: var(--lime-ink); opacity: 0.75; }
-  .task .del, .task .edit, .task .handle {
+  .task .del, .task .edit {
     flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
     color: var(--muted);
   }
   .task .del:active { color: var(--danger); }
   .task .edit:active { color: var(--lime-ink); }
-  .task .del svg, .task .edit svg, .task .handle svg { width: 17px; height: 17px; stroke: currentColor; }
-  .task .handle { touch-action: none; cursor: grab; }
-  .task .handle svg { width: 19px; height: 19px; }
+  .task .del svg, .task .edit svg { width: 17px; height: 17px; stroke: currentColor; }
+  .mv-col { display: flex; flex-direction: column; gap: 3px; flex: none; }
+  .mv {
+    width: 30px; height: 23px; border-radius: 7px; display: grid; place-items: center;
+    color: var(--muted); background: var(--surface-2);
+  }
+  .mv svg { width: 14px; height: 14px; stroke: currentColor; }
+  .mv:active { color: var(--lime-ink); background: var(--lime-soft); }
   .task.static { cursor: default; }
   .task.static:active { transform: none; }
   .task input.t-edit {
@@ -466,7 +467,7 @@
       <div class="progress-track"><div class="progress-fill" id="staff-bar" style="width:0%"></div></div>
     </div>
     <div id="staff-groups"></div>
-    <div class="drag-tip" id="staff-tip">Hold the ☰ handle to drag a task up or down — arrange your day your way.</div>
+    <div class="drag-tip" id="staff-tip">Use the ↑ ↓ buttons to move a task up or down — arrange your day your way.</div>
 
     <!-- Delegation board (manager profile only) -->
     <div id="staff-delegate" style="display:none">
@@ -482,7 +483,7 @@
         <button class="btn-primary" id="del-add-btn">Add to checklist</button>
       </div>
       <div id="del-lists"></div>
-      <div class="drag-tip">Hold the ☰ handle to reorder or move a task to someone else. Tap ✎ to edit.</div>
+      <div class="drag-tip">Use the ↑ ↓ buttons to reorder. Tap ✎ to edit a task or move it to someone else.</div>
     </div>
   </section>
 
@@ -524,7 +525,7 @@
         <button class="btn-primary" id="add-task-btn">Add to checklist</button>
       </div>
       <div id="boss-lists"></div>
-      <div class="drag-tip">Hold the ☰ handle to reorder a task or drag it to another staff member. Tap ✎ to edit.</div>
+      <div class="drag-tip">Use the ↑ ↓ buttons to reorder. Tap ✎ to edit a task or move it to another staff member.</div>
     </div>
 
     <div class="tab-panel" id="tab-routine">
@@ -535,7 +536,7 @@
         <button class="btn-primary" id="add-routine-btn">Add routine</button>
       </div>
       <div id="boss-routines"></div>
-      <p class="note">Routines show up on staff checklists every single day and untick themselves automatically each morning. Drag between staff to reassign; tap ✎ to edit.</p>
+      <p class="note">Routines show up on staff checklists every single day and untick themselves automatically each morning. Tap ✎ to edit a routine or move it to another staff member.</p>
     </div>
 
     <div class="tab-panel" id="tab-history">
@@ -818,7 +819,6 @@
   var state = { pins: JSON.parse(JSON.stringify(DEFAULT_PINS)), tasks: [], routines: [], routineLog: [] };
   var loaded = false;
   var lastLoad = 0;
-  var draggingNow = false;
   var editingNow = false;
 
   /* ---------- helpers ---------- */
@@ -1132,23 +1132,37 @@
           ? '<span class="del" data-del="' + esc(t.id) + '" role="button" aria-label="Delete task">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></span>'
           : "") +
-        (opts.handle
-          ? '<span class="handle" aria-label="Drag to reorder">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>'
+        (opts.arrows && !t.done
+          ? '<span class="mv-col">' +
+            '<button class="mv" data-up="1" aria-label="Move up"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg></button>' +
+            '<button class="mv" data-down="1" aria-label="Move down"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>' +
+            "</span>"
           : "") +
       "</div>"
     );
   }
-  var lastDragEnd = 0;
   function bindTaskRows(container, rerender) {
     var kind = kindOf(container);
+    var canMove = container.hasAttribute("data-staff-list");
+    function arrowMove(row, dir) {
+      var list = row.parentElement;
+      var sib = dir < 0 ? row.previousElementSibling : row.nextElementSibling;
+      if (!sib || !sib.classList || !sib.classList.contains("task")) return;
+      if (sib.classList.contains("done") !== row.classList.contains("done")) return;
+      if (dir < 0) list.insertBefore(row, sib);
+      else list.insertBefore(sib, row);
+      commitOrder(list);
+      rerender();
+    }
     container.querySelectorAll(".task").forEach(function (row) {
       row.addEventListener("click", function (ev) {
-        if (Date.now() - lastDragEnd < 400) return;
         if (row.classList.contains("editing")) return;
-        if (ev.target.closest && ev.target.closest(".handle")) return;
+        var up = ev.target.closest ? ev.target.closest("[data-up]") : null;
+        if (up) { arrowMove(row, -1); return; }
+        var down = ev.target.closest ? ev.target.closest("[data-down]") : null;
+        if (down) { arrowMove(row, 1); return; }
         var editBtn = ev.target.closest ? ev.target.closest("[data-edit]") : null;
-        if (editBtn) { startEdit(row, rerender, kind); return; }
+        if (editBtn) { startEdit(row, rerender, kind, canMove); return; }
         var del = ev.target.closest ? ev.target.closest("[data-del]") : null;
         if (del) {
           if (kind === "routine") removeRoutine(del.getAttribute("data-del"));
@@ -1169,21 +1183,26 @@
       });
     });
   }
-  function startEdit(row, rerender, kind) {
+  function startEdit(row, rerender, kind, canMove) {
     var t = kind === "routine" ? routineById(row.getAttribute("data-id")) : taskById(row.getAttribute("data-id"));
     if (!t) return;
     row.classList.add("editing");
     editingNow = true;
     var editSource = kind === "routine" ? [] : srcList(t);
+    var editAssignee = t.assignee;
     var body = row.querySelector(".t-body");
     var chipsHtml = kind === "routine" ? "" : SOURCES.map(function (s) {
       return '<button class="chip' + (editSource.indexOf(s.id) !== -1 ? " active" : "") + '" data-esrc="' + s.id + '">' + s.icon + s.label + "</button>";
     }).join("");
+    var moveHtml = canMove ? STAFF.map(function (s) {
+      return '<button class="chip' + (editAssignee === s.id ? " active" : "") + '" data-emove="' + s.id + '">' + s.name + "</button>";
+    }).join("") : "";
     body.innerHTML =
       '<input class="t-edit" type="text" maxlength="120" value="' + esc(t.title) + '" />' +
       (kind === "routine" ? "" :
         '<input class="t-edit t-edit-cust" type="text" maxlength="80" placeholder="Customer (optional)" value="' + esc(t.customer || "") + '" />') +
-      '<span class="edit-tools">' + chipsHtml + '<button class="chip save-chip" data-save="1">Save</button></span>';
+      (chipsHtml ? '<span class="edit-tools">' + chipsHtml + "</span>" : "") +
+      '<span class="edit-tools">' + moveHtml + '<button class="chip save-chip" data-save="1">Save</button></span>';
     var input = body.querySelector("input.t-edit");
     var custInput = body.querySelector("input.t-edit-cust");
     [input, custInput].forEach(function (inp) {
@@ -1205,6 +1224,15 @@
         });
       });
     });
+    body.querySelectorAll("[data-emove]").forEach(function (c) {
+      c.addEventListener("click", function (e) {
+        e.stopPropagation();
+        editAssignee = c.getAttribute("data-emove");
+        body.querySelectorAll("[data-emove]").forEach(function (x) {
+          x.classList.toggle("active", x.getAttribute("data-emove") === editAssignee);
+        });
+      });
+    });
     body.querySelector("[data-save]").addEventListener("click", function (e) {
       e.stopPropagation();
       commit();
@@ -1218,7 +1246,8 @@
       var titleChanged = !!v && v !== t.title;
       var srcChanged = kind !== "routine" && newSrc !== srcList(t).join(",");
       var custChanged = kind !== "routine" && !!custInput && cv !== (t.customer || "");
-      var changed = titleChanged || srcChanged || custChanged;
+      var assigneeChanged = canMove && editAssignee !== t.assignee;
+      var changed = titleChanged || srcChanged || custChanged || assigneeChanged;
       /* stamp editedAt BEFORE the mutations so it persists with them */
       if (changed && kind !== "routine") t.editedAt = ts;
       if (titleChanged) {
@@ -1233,7 +1262,14 @@
         t.customer = cv;
         apiMutate("setCustomer", [t.id, cv, ts]);
       }
-      if (changed) toast(kind === "routine" ? "Routine updated" : "Task updated");
+      if (assigneeChanged) {
+        t.assignee = editAssignee;
+        apiMutate(kind === "routine" ? "setRoutineAssignee" : "setAssignee", [t.id, editAssignee]);
+      }
+      if (changed) {
+        toast(assigneeChanged ? "Moved to " + staffById(editAssignee).name
+          : kind === "routine" ? "Routine updated" : "Task updated");
+      }
       rerender();
     }
     input.focus();
@@ -1272,95 +1308,8 @@
     apiMutate("deleteRoutine", [id]);
   }
 
-  /* ---------- drag to reorder / reassign ----------
-     Staff drag within one day-group; the boss can also drag a task
-     from one staff member's list into another to reassign it. */
-  function enableDrag(listEl, allLists) {
-    listEl.querySelectorAll(".handle").forEach(function (h) {
-      h.addEventListener("pointerdown", function (e) { startDrag(e, h, listEl, allLists || [listEl]); });
-    });
-  }
-  function startDrag(e, handle, listEl, allLists) {
-    e.preventDefault();
-    var row = handle.closest(".task");
-    if (!row) return;
-    draggingNow = true;
-    row.classList.add("dragging");
-    try { handle.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
-    var lastX = e.clientX;
-    var lastY = e.clientY;
-
-    /* nearest list in 2D, so side-by-side desktop columns work too */
-    function pickList(x, y) {
-      var best = listEl, bestDist = Infinity;
-      allLists.forEach(function (l) {
-        var r = l.getBoundingClientRect();
-        var dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
-        var dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
-        var dist = dx + dy;
-        if (dist < bestDist) { bestDist = dist; best = l; }
-      });
-      return best;
-    }
-    function place(x, y) {
-      var target = pickList(x, y);
-      var rows = Array.prototype.slice.call(target.querySelectorAll(".task"));
-      var next = null;
-      for (var i = 0; i < rows.length; i++) {
-        if (rows[i] === row) continue;
-        var rect = rows[i].getBoundingClientRect();
-        if (y < rect.top + rect.height / 2) { next = rows[i]; break; }
-      }
-      if (next) {
-        if (next !== row.nextSibling || row.parentElement !== target) target.insertBefore(row, next);
-      } else if (target.lastElementChild !== row || row.parentElement !== target) {
-        target.appendChild(row);
-      }
-    }
-    function onMove(ev) { lastX = ev.clientX; lastY = ev.clientY; place(lastX, lastY); }
-
-    /* auto-scroll when dragging near the top/bottom of a long list */
-    var raf = requestAnimationFrame(function loop() {
-      if (!draggingNow) return;
-      if (lastY < 110) { window.scrollBy(0, -10); place(lastX, lastY); }
-      else if (lastY > window.innerHeight - 110) { window.scrollBy(0, 10); place(lastX, lastY); }
-      raf = requestAnimationFrame(loop);
-    });
-
-    function onUp() {
-      handle.removeEventListener("pointermove", onMove);
-      handle.removeEventListener("pointerup", onUp);
-      handle.removeEventListener("pointercancel", onUp);
-      cancelAnimationFrame(raf);
-      row.classList.remove("dragging");
-      draggingNow = false;
-      lastDragEnd = Date.now();
-      finishDrag(row);
-    }
-    handle.addEventListener("pointermove", onMove);
-    handle.addEventListener("pointerup", onUp);
-    handle.addEventListener("pointercancel", onUp);
-  }
-  function finishDrag(row) {
-    var listEl = row.parentElement;
-    if (!listEl) return;
-    var kind = kindOf(listEl);
-    var item = kind === "routine" ? routineById(row.getAttribute("data-id")) : taskById(row.getAttribute("data-id"));
-    var newStaff = listEl.getAttribute("data-staff-list");
-    var moved = false;
-    if (item && newStaff && item.assignee !== newStaff) {
-      item.assignee = newStaff;
-      apiMutate(kind === "routine" ? "setRoutineAssignee" : "setAssignee", [item.id, newStaff]);
-      moved = true;
-    }
-    commitOrder(listEl, moved ? "Moved to " + staffById(newStaff).name : "Order saved");
-    if (newStaff) {
-      if (kind === "routine") renderBossRoutines();
-      else { renderBossLists(); renderDelegateLists(); }
-      renderStats();
-    }
-  }
-  function commitOrder(listEl, msg) {
+  /* ---------- reorder via the up/down buttons ---------- */
+  function commitOrder(listEl) {
     var kind = kindOf(listEl);
     var ids = Array.prototype.map.call(listEl.querySelectorAll(".task"), function (r) {
       return r.getAttribute("data-id");
@@ -1370,7 +1319,6 @@
       if (t) t.order = i + 1;
     });
     apiMutate(kind === "routine" ? "reorderRoutines" : "reorderTasks", [ids]);
-    toast(msg || "Order saved");
   }
 
   /* ---------- staff checklist ---------- */
@@ -1437,7 +1385,7 @@
       html = '<div class="staff-col">' + (routines.length
         ? '<div class="section-label">Daily routine <span class="count">· resets every morning</span></div>' +
           '<div class="task-list" data-kind="routine">' +
-            routines.map(function (rt) { return taskRow(routineView(rt), { handle: true, win: true }); }).join("") +
+            routines.map(function (rt) { return taskRow(routineView(rt), { arrows: true, win: true }); }).join("") +
           "</div>"
         : '<div class="section-label">Daily routine</div><div class="empty">No daily routine yet. The boss can add one.</div>') + "</div>";
     } else if (!list.length) {
@@ -1450,7 +1398,7 @@
           '<div class="section-label">' + dayLabel(g.date) +
             ' <span class="count">· ' + gDone + "/" + g.tasks.length + "</span></div>" +
           '<div class="task-list" data-group="' + g.date + '">' +
-            g.tasks.map(function (t) { return taskRow(t, { handle: true, win: true }); }).join("") +
+            g.tasks.map(function (t) { return taskRow(t, { arrows: true, win: true }); }).join("") +
           "</div></div>"
         );
       }).join("");
@@ -1458,7 +1406,6 @@
     el.innerHTML = html;
     el.querySelectorAll(".task-list").forEach(function (l) {
       bindTaskRows(l, function () { renderStaff(currentStaff); });
-      enableDrag(l);
     });
   }
 
@@ -1528,15 +1475,13 @@
       html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done</div>";
       html += '<div class="task-list" data-staff-list="' + s.id + '">';
       html += list.length
-        ? list.map(function (t) { return taskRow(t, { del: true, edit: true, handle: true }); }).join("")
+        ? list.map(function (t) { return taskRow(t, { del: true, edit: true, arrows: true }); }).join("")
         : '<div class="empty">Nothing assigned to ' + s.name + " yet.</div>";
       html += "</div></div>";
     });
     el.innerHTML = html;
-    var lists = Array.prototype.slice.call(el.querySelectorAll("[data-staff-list]"));
-    lists.forEach(function (c) {
+    el.querySelectorAll("[data-staff-list]").forEach(function (c) {
       bindTaskRows(c, afterChange);
-      enableDrag(c, lists);
     });
   }
   function renderBossLists() {
@@ -1555,15 +1500,13 @@
       html += '<div class="section-label">' + s.name + " &middot; " + done + "/" + list.length + " done today</div>";
       html += '<div class="task-list" data-kind="routine" data-staff-list="' + s.id + '">';
       html += list.length
-        ? list.map(function (r) { return taskRow(routineView(r), { del: true, edit: true, handle: true }); }).join("")
+        ? list.map(function (r) { return taskRow(routineView(r), { del: true, edit: true, arrows: true }); }).join("")
         : '<div class="empty">No daily routine for ' + s.name + " yet.</div>";
       html += "</div></div>";
     });
     el.innerHTML = html;
-    var lists = Array.prototype.slice.call(el.querySelectorAll("[data-staff-list]"));
-    lists.forEach(function (c) {
+    el.querySelectorAll("[data-staff-list]").forEach(function (c) {
       bindTaskRows(c, function () { renderBossRoutines(); renderStats(); });
-      enableDrag(c, lists);
     });
   }
   function addRoutine() {
@@ -1739,7 +1682,7 @@
     document.getElementById("boss-updated").textContent = txt;
   }
   function refreshData(showToast) {
-    if (draggingNow || editingNow) return;
+    if (editingNow) return;
     apiGetData(function (d) {
       state = d;
       loaded = true;
@@ -1763,7 +1706,7 @@
   /* Countdown ticker: repaint the task lists every 30s so deadlines,
      overdue flags and penalty points stay current. */
   setInterval(function () {
-    if (draggingNow || editingNow) return;
+    if (editingNow) return;
     if (activeScreen === "staff" && (staffTab === "tasks" || staffTab === "delegate") && currentStaff) renderStaff(currentStaff);
     else if (activeScreen === "boss") { renderBossLists(); renderStats(); }
   }, 30000);
