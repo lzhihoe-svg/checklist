@@ -5,7 +5,7 @@ A mobile-friendly checklist web app for a small team — one Boss panel plus thr
 ## Features
 
 - **Boss panel** (PIN-protected): create tasks and assign them to Admin / Sales / Operator, see every checklist as a simple list per staff member, view per-staff performance stats (assigned / done / pending / today), and manage everyone's PINs.
-- **Staff checklists**: each staff member unlocks their own list with a 4-digit PIN. Their tasks are grouped by day (Yesterday, Today, Tomorrow, dates — stamped automatically when the boss adds the task). Tapping a task ticks it — it doesn't disappear, it turns light grey with a strikethrough. Staff can **drag tasks up/down** with the ☰ handle to order their own list.
+- **Staff checklists**: each staff member unlocks their own list with a 4-digit PIN. Their tasks are grouped by day (Yesterday, Today, Tomorrow, dates — stamped automatically when the boss adds the task). Tapping a task ticks it — it doesn't disappear; completed tasks turn green on the staff side and sink to the bottom. Staff can reorder their own list with the **↑ ↓ buttons** on each pending task, and reassigning a task to another person is done from the ✎ edit view (boss boards and Bob's Delegate tab).
 - **Refresh button** on every screen, plus **auto-refresh every 30 minutes** (and whenever the app returns to the foreground).
 
 ## Default PINs
